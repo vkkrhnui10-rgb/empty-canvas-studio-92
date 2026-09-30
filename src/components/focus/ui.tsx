@@ -31,6 +31,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { cn } from "@/lib/utils";
 import { X as XIcon, type LucideIcon } from "lucide-react";
 import { accentFor } from "./constants";
+import { useDB } from "./store";
 
 /* FOCUS primitives — thin, themed wrappers over the project's shadcn/ui components. */
 
@@ -547,16 +548,37 @@ export function LinkAction({
   );
 }
 
-/** client/project avatar — initials on a tinted square */
+/** hostname of a project's site, for its favicon */
+function hostOf(url: string): string {
+  const t = url.trim();
+  if (!t) return "";
+  try {
+    const h = new URL(/^https?:\/\//i.test(t) ? t : `https://${t}`).hostname;
+    return h.includes(".") ? h : "";
+  } catch {
+    return "";
+  }
+}
+/** hosts whose favicon failed to load — don't ask again this session */
+const badIcons = new Set<string>();
+
+/** client/project avatar — the site's favicon when it has one, otherwise initials on a tinted square */
 export function ProjectAvatar({
   id,
   name,
   size = 40,
+  url,
 }: {
   id: string;
   name: string;
   size?: number;
+  url?: string;
 }) {
+  const db = useDB();
+  const site = url ?? db.projects.find((p) => p.id === id)?.url ?? "";
+  const host = hostOf(site);
+  const [failed, setFailed] = React.useState(() => badIcons.has(host));
+  React.useEffect(() => setFailed(badIcons.has(host)), [host]);
   const c = accentFor(id);
   const initials =
     name
@@ -567,20 +589,36 @@ export function ProjectAvatar({
       .map((w) => w[0])
       .join("")
       .toUpperCase() || "?";
+  const showIcon = !!host && !failed;
   return (
     <span
       aria-hidden
-      className="inline-flex shrink-0 items-center justify-center rounded-[10px] font-bold"
+      className="inline-flex shrink-0 items-center justify-center overflow-hidden rounded-[10px] font-bold"
       style={{
         width: size,
         height: size,
         fontSize: Math.round(size * 0.38),
         color: c,
-        background: `color-mix(in oklab, ${c} 13%, var(--focus-card))`,
+        background: showIcon ? "#fff" : `color-mix(in oklab, ${c} 13%, var(--focus-card))`,
         boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${c} 22%, transparent)`,
       }}
     >
-      {initials}
+      {showIcon ? (
+        <img
+          src={`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&url=${encodeURIComponent(`https://${host}`)}&size=64`}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          referrerPolicy="no-referrer"
+          style={{ width: "62%", height: "62%", objectFit: "contain" }}
+          onError={() => {
+            badIcons.add(host);
+            setFailed(true);
+          }}
+        />
+      ) : (
+        initials
+      )}
     </span>
   );
 }

@@ -52,6 +52,25 @@ export interface Payment {
   amount: number;
   date: string;
   note: string;
+  txCode?: string;
+  invoiceUrl?: string;
+}
+
+/** one Grow webhook event as recorded in FOCUS */
+export interface GrowEntry {
+  id: string; // grow_events.id
+  at: number;
+  kind: "so_failed" | "so_charge" | "invoice" | "payment";
+  name: string;
+  phone: string;
+  email: string;
+  sum: number;
+  desc: string;
+  error: string;
+  txCode: string;
+  invoiceUrl: string;
+  projectId: string; // "" = not matched yet
+  applied: string; // what FOCUS did with it
 }
 
 export interface Project {
@@ -173,6 +192,7 @@ export interface DB {
   projects: Project[];
   cpanels: Cpanel[];
   leads: Lead[];
+  growLog: GrowEntry[];
   plan: { date: string; ids: string[]; closed: boolean };
   timer: TimerState | null;
   sessions: Session[];

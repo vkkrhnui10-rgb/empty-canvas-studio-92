@@ -4,6 +4,7 @@ import type {
   Alert,
   Cpanel,
   DB,
+  GrowEntry,
   Lead,
   LeadNote,
   LeadStage,
@@ -12,6 +13,7 @@ import type {
   TaskStatus,
   TimerState,
 } from "./types";
+import { fields as growFields, normPhone, type GrowKind } from "./grow";
 import {
   CLOSED_PROJECT,
   DEFAULT_SO_MSG,
@@ -72,6 +74,7 @@ const emptyDB = (): DB => ({
   projects: [],
   cpanels: [],
   leads: [],
+  growLog: [],
   plan: { date: todayStr(), ids: [], closed: false },
   timer: null,
   sessions: [],
@@ -219,6 +222,7 @@ function migrate(raw: any): DB {
     leads: (raw.leads || []).map((l: any) => newLead({ ...l, notes: l.notes || [] })),
     sessions: (raw.sessions || []).map((s: { projectId?: string }) => ({ projectId: "", ...s })),
     activity: raw.activity || [],
+    growLog: raw.growLog || [],
   };
   if (db.timer && !("mode" in db.timer)) db.timer = { ...(db.timer as TimerState), mode: "work" };
   return rollDay(db);
@@ -263,11 +267,26 @@ export function hydrate() {
 export const isHydrated = () => hydrated;
 
 export const getState = () => state;
+/** listeners for LOCAL edits (the cloud sync subscribes here) */
+const changeHooks = new Set<(db: DB) => void>();
+export function onLocalChange(fn: (db: DB) => void) {
+  changeHooks.add(fn);
+  return () => changeHooks.delete(fn);
+}
 function set(next: DB) {
   state = next;
   adapter.save(state);
   emit();
+  changeHooks.forEach((h) => h(state));
 }
+/** replace everything with data that came from the cloud (does not echo back) */
+export function replaceFromRemote(raw: unknown) {
+  state = migrate(raw ?? {});
+  adapter.save(state);
+  emit();
+}
+export const hasLocalData = () =>
+  state.projects.length + state.tasks.length + state.leads.length + state.cpanels.length > 0;
 /** immutable-style update on a deep clone; returns the previous snapshot (for undo) */
 export function update(fn: (d: DB) => void): DB {
   const prev = state;
@@ -516,6 +535,43 @@ function advance(d: DB, fromId: string) {
     next.status = "doing";
   }
   return next;
+}
+
+/** what a Grow event means for a project — mutates the draft, returns a short summary */
+function applyGrowToProject(d: DB, p: Project, e: GrowEntry, day: string) {
+  const date = day || todayStr();
+  if (e.kind === "so_failed") {
+    p.soState = "failed";
+    p.soFailedAt = date;
+    p.soFailReason = e.error;
+    log(d, p.id, `Grow: חיוב הוראת קבע נכשל${e.error ? ` — ${e.error}` : ""}`);
+    return "סומן: הוראת קבע נכשלה";
+  }
+  if (e.kind === "so_charge") {
+    p.soState = "ok";
+    p.soLastCharge = date;
+    p.soChecked = todayStr();
+    p.soFailReason = "";
+    log(d, p.id, `Grow: חיוב הוראת קבע עבר (${e.sum} ₪)`);
+    return "הוראת קבע: תקינה";
+  }
+  // one-off payment → count it against the build balance when it fits
+  const bal = balanceOf(p);
+  if (e.sum > 0 && bal > 0 && e.sum <= bal + 0.5) {
+    p.paid = (p.paid || 0) + e.sum;
+    p.payments.unshift({
+      id: uid(),
+      amount: e.sum,
+      date,
+      note: `Grow${e.desc ? ` — ${e.desc}` : ""}`,
+      txCode: e.txCode,
+      invoiceUrl: e.invoiceUrl || undefined,
+    });
+    log(d, p.id, `Grow: התקבל תשלום ${e.sum} ₪`);
+    return "נרשם כתשלום על הבנייה";
+  }
+  log(d, p.id, `Grow: תשלום ${e.sum} ₪${e.desc ? ` — ${e.desc}` : ""}`);
+  return "נרשם ביומן";
 }
 
 /* ================= actions ================= */
@@ -835,6 +891,70 @@ export const actions = {
         p.cardUrlAt = Date.now();
       }
       log(d, id, "נשלחה בוואטסאפ בקשה לעדכון כרטיס");
+    });
+  },
+
+  /* ---- Grow ---- */
+  /** apply one webhook event; returns the log entry (projectId "" when unmatched) */
+  applyGrow(ev: { id: string; kind: string; payload: unknown; received_at?: string }) {
+    if (state.growLog.some((g) => g.id === ev.id)) return;
+    const f = growFields(ev.payload);
+    const entry: GrowEntry = {
+      id: ev.id,
+      at: ev.received_at ? Date.parse(ev.received_at) || Date.now() : Date.now(),
+      kind: ev.kind as GrowKind,
+      name: f.name,
+      phone: f.phone,
+      email: f.email,
+      sum: f.sum,
+      desc: f.desc || f.invoiceNumber,
+      error: f.error,
+      txCode: f.txCode,
+      invoiceUrl: f.invoiceUrl,
+      projectId: "",
+      applied: "",
+    };
+    update((d) => {
+      // invoices point at an earlier transaction — attach, don't match by person
+      if (entry.kind === "invoice") {
+        const prev = d.growLog.find((g) => g.txCode && g.txCode === entry.txCode);
+        if (prev) {
+          prev.invoiceUrl = entry.invoiceUrl;
+          entry.projectId = prev.projectId;
+          entry.name = entry.name || prev.name;
+          const p = findProject(d, prev.projectId);
+          const pay = p?.payments.find((x) => x.txCode === entry.txCode);
+          if (pay) pay.invoiceUrl = entry.invoiceUrl;
+          entry.applied = "החשבונית צורפה לתשלום";
+        }
+      } else {
+        const ph = normPhone(f.phone);
+        const p = d.projects.find(
+          (x) =>
+            (ph.length >= 9 && normPhone(x.phone) === ph) ||
+            (!!f.email && x.email.trim().toLowerCase() === f.email),
+        );
+        if (p) {
+          entry.projectId = p.id;
+          entry.applied = applyGrowToProject(d, p, entry, f.date);
+        }
+      }
+      d.growLog.unshift(entry);
+      if (d.growLog.length > 500) d.growLog.length = 500;
+    });
+  },
+  /** manually link an unmatched Grow event to a project (and apply it) */
+  assignGrow(entryId: string, projectId: string, rememberContact = true) {
+    update((d) => {
+      const e = d.growLog.find((g) => g.id === entryId);
+      const p = findProject(d, projectId);
+      if (!e || !p) return;
+      e.projectId = p.id;
+      e.applied = applyGrowToProject(d, p, e, "");
+      if (rememberContact) {
+        if (!p.phone && e.phone) p.phone = e.phone;
+        if (!p.email && e.email) p.email = e.email;
+      }
     });
   },
 

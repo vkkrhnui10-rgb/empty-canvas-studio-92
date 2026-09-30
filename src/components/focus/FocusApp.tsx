@@ -51,6 +51,8 @@ import { CommandPalette, SettingsView, ShortcutsDialog } from "./settings";
 import { QuickAddDialog, TaskDrawer } from "./tasks";
 import { InlineFloating, useFloating } from "./floating";
 import { LeadsView } from "./leads";
+import { LoginScreen, RecoveryDialog, SyncBadge } from "./auth";
+import { startCloud, useCloud } from "./cloud";
 
 const NAV: { v: View; l: string; i: typeof LayoutDashboard; group?: string }[] = [
   { v: "dashboard", l: "ראשי", i: LayoutDashboard, group: "העבודה שלי" },
@@ -93,11 +95,26 @@ function parseHash(): { view: View; projectId: string | null } {
 
 export default function FocusApp() {
   const hydrated = useHydrated();
-  React.useEffect(() => hydrate(), []);
+  const cloud = useCloud();
+  React.useEffect(() => {
+    hydrate();
+    startCloud();
+  }, []);
+  const body =
+    !hydrated || (cloud.enabled && !cloud.ready) ? (
+      <Splash />
+    ) : cloud.enabled && !cloud.session ? (
+      <LoginScreen />
+    ) : cloud.enabled && cloud.status === "loading" ? (
+      <Splash text="מסנכרן מהענן…" />
+    ) : (
+      <Shell />
+    );
   return (
     <TooltipProvider delayDuration={350}>
       <div dir="rtl" lang="he" className="focus-app">
-        {hydrated ? <Shell /> : <Splash />}
+        {body}
+        <RecoveryDialog />
         <Toaster
           dir="rtl"
           position="bottom-center"
@@ -111,14 +128,14 @@ export default function FocusApp() {
   );
 }
 
-function Splash() {
+function Splash({ text = "טוען את FOCUS…" }: { text?: string }) {
   return (
     <div className="flex h-dvh items-center justify-center">
       <div className="flex items-center gap-3 text-[color:var(--focus-muted)]">
         <div className="flex size-10 animate-pulse items-center justify-center rounded-2xl bg-[var(--focus-primary)] font-black text-[color:var(--focus-primary-foreground)]">
           F
         </div>
-        טוען את FOCUS…
+        {text}
       </div>
     </div>
   );
@@ -389,6 +406,7 @@ function Shell() {
               >
                 <Search className="size-5" />
               </button>
+              <SyncBadge />
               {t && (active || t.mode === "break") && <TimerPill onOpen={() => go("focus")} />}
               <TopIcon
                 icon={PictureInPicture2}

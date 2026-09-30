@@ -1,0 +1,286 @@
+/* ============================================================
+ * FOCUS ⇄ Lovable Cloud (Supabase)
+ * - The whole workspace lives in one row per user: focus_state.data (JSON).
+ * - localStorage stays as an offline cache; local edits are pushed
+ *   (debounced) and other devices get them through realtime.
+ * - Grow webhook events arrive in grow_events and are applied here.
+ * ============================================================ */
+import { useSyncExternalStore } from "react";
+import type { RealtimeChannel, Session } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { actions, getState, hasLocalData, onLocalChange, replaceFromRemote } from "./store";
+
+export type SyncStatus = "off" | "loading" | "synced" | "saving" | "offline" | "error";
+
+interface CloudState {
+  enabled: boolean;
+  ready: boolean; // auth state known
+  session: Session | null;
+  status: SyncStatus;
+  webhookToken: string;
+  lastSync: number;
+  error: string;
+  recovering: boolean; // arrived from a "reset password" email
+}
+
+const configured =
+  typeof import.meta !== "undefined" &&
+  !!import.meta.env?.VITE_SUPABASE_URL &&
+  !!import.meta.env?.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+let cs: CloudState = {
+  enabled: configured,
+  ready: !configured,
+  session: null,
+  status: configured ? "loading" : "off",
+  webhookToken: "",
+  lastSync: 0,
+  error: "",
+  recovering: false,
+};
+const subs = new Set<() => void>();
+const setCs = (p: Partial<CloudState>) => {
+  cs = { ...cs, ...p };
+  subs.forEach((f) => f());
+};
+const subscribe = (f: () => void) => {
+  subs.add(f);
+  return () => subs.delete(f);
+};
+export const useCloud = () =>
+  useSyncExternalStore(
+    subscribe,
+    () => cs,
+    () => cs,
+  );
+export const getCloud = () => cs;
+
+/* a stable id for this browser, so we ignore our own realtime echoes */
+const DEVICE = (() => {
+  if (typeof window === "undefined") return "ssr";
+  try {
+    let d = localStorage.getItem("focus-device");
+    if (!d) {
+      d = Math.random().toString(36).slice(2, 10);
+      localStorage.setItem("focus-device", d);
+    }
+    return d;
+  } catch {
+    return Math.random().toString(36).slice(2, 10);
+  }
+})();
+
+let started = false;
+let userId = "";
+let channel: RealtimeChannel | null = null;
+let saveTimer: ReturnType<typeof setTimeout> | undefined;
+let unhookLocal: (() => void) | undefined;
+let pending = false;
+
+/** call once on app start */
+export function startCloud() {
+  if (!configured || started || typeof window === "undefined") return;
+  started = true;
+  supabase.auth.getSession().then(({ data }) => handleSession(data.session));
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === "PASSWORD_RECOVERY") setCs({ recovering: true });
+    if ((session?.user.id ?? "") !== userId) handleSession(session);
+    else setCs({ session });
+  });
+  window.addEventListener("online", () => pending && flush());
+  window.addEventListener("beforeunload", () => {
+    if (pending) void flush();
+  });
+}
+
+async function handleSession(session: Session | null) {
+  teardown();
+  setCs({ session, ready: true });
+  if (!session) {
+    userId = "";
+    setCs({ status: "off" });
+    return;
+  }
+  userId = session.user.id;
+  setCs({ status: "loading", error: "" });
+  try {
+    await pullOrSeed();
+    listen();
+    await drainGrow();
+    unhookLocal = onLocalChange(() => schedule());
+    setCs({ status: "synced", lastSync: Date.now() });
+  } catch (e) {
+    setCs({
+      status: navigator.onLine ? "error" : "offline",
+      error: String((e as Error)?.message ?? e),
+    });
+  }
+}
+
+function teardown() {
+  unhookLocal?.();
+  unhookLocal = undefined;
+  if (channel) void supabase.removeChannel(channel);
+  channel = null;
+  clearTimeout(saveTimer);
+}
+
+/** first load: cloud wins; an empty cloud gets this browser's data */
+async function pullOrSeed() {
+  const { data, error } = await supabase
+    .from("focus_state")
+    .select("data, webhook_token, device")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  const remote = data?.data as Record<string, unknown> | null | undefined;
+  const remoteHasData =
+    !!remote &&
+    ["projects", "tasks", "leads", "cpanels"].some(
+      (k) => Array.isArray(remote[k]) && (remote[k] as unknown[]).length > 0,
+    );
+
+  if (data && remoteHasData) {
+    // keep a safety copy of whatever this browser had before switching to the cloud copy
+    if (hasLocalData() && localStorage.getItem("focus-cloud-user") !== userId) {
+      try {
+        localStorage.setItem("focus-db-local-backup", JSON.stringify(getState()));
+      } catch {
+        /* quota */
+      }
+    }
+    replaceFromRemote(remote);
+    setCs({ webhookToken: data.webhook_token });
+  } else {
+    const { data: row, error: upErr } = await supabase
+      .from("focus_state")
+      .upsert(
+        {
+          user_id: userId,
+          data: getState() as never,
+          device: DEVICE,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      )
+      .select("webhook_token")
+      .single();
+    if (upErr) throw upErr;
+    setCs({ webhookToken: row.webhook_token });
+  }
+  localStorage.setItem("focus-cloud-user", userId);
+}
+
+function schedule() {
+  if (!userId) return;
+  pending = true;
+  setCs({ status: "saving" });
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(flush, 900);
+}
+
+async function flush() {
+  if (!userId) return;
+  clearTimeout(saveTimer);
+  const snapshot = getState();
+  const { error } = await supabase
+    .from("focus_state")
+    .update({ data: snapshot as never, device: DEVICE, updated_at: new Date().toISOString() })
+    .eq("user_id", userId);
+  if (error) {
+    setCs({ status: navigator.onLine ? "error" : "offline", error: error.message });
+    // retry later
+    saveTimer = setTimeout(flush, 15_000);
+    return;
+  }
+  // more edits may have landed while saving
+  if (getState() === snapshot) {
+    pending = false;
+    setCs({ status: "synced", lastSync: Date.now(), error: "" });
+  } else schedule();
+}
+
+function listen() {
+  channel = supabase
+    .channel(`focus-${userId}`)
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "focus_state", filter: `user_id=eq.${userId}` },
+      (msg) => {
+        const row = msg.new as { data?: unknown; device?: string };
+        if (!row || row.device === DEVICE || pending) return;
+        replaceFromRemote(row.data);
+        setCs({ lastSync: Date.now() });
+      },
+    )
+    .on(
+      "postgres_changes",
+      { event: "INSERT", schema: "public", table: "grow_events", filter: `user_id=eq.${userId}` },
+      () => void drainGrow(),
+    )
+    .subscribe();
+}
+
+let draining = false;
+/** apply any Grow events that haven't been processed yet */
+export async function drainGrow() {
+  if (!userId || draining) return;
+  draining = true;
+  try {
+    const { data, error } = await supabase
+      .from("grow_events")
+      .select("id, kind, payload, received_at")
+      .eq("user_id", userId)
+      .is("processed_at", null)
+      .order("received_at", { ascending: true })
+      .limit(100);
+    if (error || !data?.length) return;
+    for (const ev of data) actions.applyGrow(ev);
+    await supabase
+      .from("grow_events")
+      .update({ processed_at: new Date().toISOString() })
+      .in(
+        "id",
+        data.map((e) => e.id),
+      );
+  } finally {
+    draining = false;
+  }
+}
+
+/* ---------------- auth actions ---------------- */
+export async function signIn(email: string, password: string) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  return error?.message ?? "";
+}
+export async function signUp(email: string, password: string) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: window.location.origin },
+  });
+  if (error) return { error: error.message, needsConfirm: false };
+  return { error: "", needsConfirm: !data.session };
+}
+export async function resetPassword(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin,
+  });
+  return error?.message ?? "";
+}
+export async function setNewPassword(password: string) {
+  const { error } = await supabase.auth.updateUser({ password });
+  if (!error) setCs({ recovering: false });
+  return error?.message ?? "";
+}
+export async function signOut() {
+  if (pending) await flush();
+  await supabase.auth.signOut();
+}
+export async function syncNow() {
+  if (pending) await flush();
+  await drainGrow();
+}
+
+/** where Grow should send events (the published Lovable site hosts the server route) */
+export const WEBHOOK_BASE = "https://empty-canvas-studio-92.lovable.app/api/grow/webhook";

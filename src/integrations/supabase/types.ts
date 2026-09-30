@@ -14,7 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      focus_state: {
+        Row: {
+          data: Json
+          device: string | null
+          updated_at: string
+          user_id: string
+          webhook_token: string
+        }
+        Insert: {
+          data?: Json
+          device?: string | null
+          updated_at?: string
+          user_id: string
+          webhook_token?: string
+        }
+        Update: {
+          data?: Json
+          device?: string | null
+          updated_at?: string
+          user_id?: string
+          webhook_token?: string
+        }
+        Relationships: []
+      }
+      grow_events: {
+        Row: {
+          id: string
+          kind: string
+          payload: Json
+          processed_at: string | null
+          received_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          kind: string
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          kind?: string
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

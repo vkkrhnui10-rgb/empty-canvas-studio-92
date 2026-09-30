@@ -1,5 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
+import type { ReportRow } from "./growreport";
+import { samePerson } from "./growreport";
 import type {
   Alert,
   Cpanel,
@@ -549,6 +551,20 @@ function addRun(p: Project, r: Omit<SORun, "id">) {
   p.soRuns.sort((a, b) => b.date.localeCompare(a.date));
 }
 
+/** one successful run from a report; false when that transaction is already recorded */
+function importRun(p: Project, r: ReportRow): boolean {
+  const before = (p.soRuns || []).length;
+  addRun(p, { date: r.date, ok: true, sum: r.sum, note: "", txCode: r.key });
+  if ((p.soRuns || []).length === before) return false;
+  if (!p.soStart || r.date < p.soStart) p.soStart = r.date;
+  if (!p.soLastCharge || r.date > p.soLastCharge) p.soLastCharge = r.date;
+  if (["none", "check"].includes(p.soState) && daysSince(r.date) <= 40) {
+    p.soState = "ok";
+    p.soChecked = todayStr();
+  }
+  return true;
+}
+
 /** what a Grow event means for a project — mutates the draft, returns a short summary */
 function applyGrowToProject(d: DB, p: Project, e: GrowEntry, day: string) {
   const date = day || todayStr();
@@ -894,7 +910,11 @@ export const actions = {
       const x = p?.payments.find((y) => y.id === payId);
       if (!p || !x) return;
       x.invoiced = invoiced;
-      log(d, id, invoiced ? `הונפקה חשבונית לתשלום ${x.amount} ₪` : `סומן: אין חשבונית לתשלום ${x.amount} ₪`);
+      log(
+        d,
+        id,
+        invoiced ? `הונפקה חשבונית לתשלום ${x.amount} ₪` : `סומן: אין חשבונית לתשלום ${x.amount} ₪`,
+      );
     });
   },
   recordPayment(id: string, amount: number, note = "") {
@@ -1001,6 +1021,42 @@ export const actions = {
         if (!p.email && e.email) p.email = e.email;
       }
     });
+  },
+
+  /** import standing-order runs from a Grow report; returns counts + the rows that matched no project */
+  importGrowRows(rows: ReportRow[]) {
+    let added = 0;
+    let dup = 0;
+    const unmatched: ReportRow[] = [];
+    const touched = new Map<string, number>();
+    update((d) => {
+      for (const r of rows) {
+        const p = d.projects.find((x) => samePerson(x, r));
+        if (!p) {
+          unmatched.push(r);
+          continue;
+        }
+        if (importRun(p, r)) {
+          added++;
+          touched.set(p.id, (touched.get(p.id) ?? 0) + 1);
+        } else dup++;
+      }
+      for (const [id, n] of touched) log(d, id, `יובאו ${n} ריצות הוראת קבע מדוח Grow`);
+    });
+    return { added, dup, unmatched };
+  },
+  /** link one report row to a project by hand (remembers its phone/email for next time) */
+  importRowTo(r: ReportRow, projectId: string) {
+    let ok = false;
+    update((d) => {
+      const p = findProject(d, projectId);
+      if (!p) return;
+      ok = importRun(p, r);
+      if (!p.phone && r.phone) p.phone = r.phone;
+      if (!p.email && r.email) p.email = r.email;
+      if (ok) log(d, p.id, "יובאה ריצת הוראת קבע מדוח Grow");
+    });
+    return ok;
   },
 
   /* ---- leads ---- */

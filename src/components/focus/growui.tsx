@@ -5,6 +5,7 @@ import {
   Cloud,
   Copy,
   ExternalLink,
+  FileSpreadsheet,
   FileText,
   LogOut,
   RefreshCw,
@@ -17,7 +18,9 @@ import { C } from "./constants";
 import { WEBHOOK_BASE, signOut, syncNow, useCloud } from "./cloud";
 import { actions, replaceFromRemote, useDB } from "./store";
 import type { GrowEntry } from "./types";
-import { Badge, Btn, Card, EmptyState, ProjectAvatar, Select } from "./ui";
+import { Badge, Btn, Card, EmptyState, Modal, ProjectAvatar, Select } from "./ui";
+import { parseGrowReport, type ReportRow } from "./growreport";
+import { readSheet } from "./xlsx";
 import { useNav } from "./nav";
 import { ils, timeAgo } from "./utils";
 
@@ -294,6 +297,153 @@ export function GrowConnectCard() {
           </>
         )}
       </div>
+    </Card>
+  );
+}
+
+/* ------------------------------ settings: import a Grow report ------------------------------ */
+interface ImportResult {
+  added: number;
+  dup: number;
+  skipped: number;
+  unmatched: ReportRow[];
+}
+
+export function GrowImportCard() {
+  const db = useDB();
+  const ref = React.useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = React.useState(false);
+  const [res, setRes] = React.useState<ImportResult | null>(null);
+  const [open, setOpen] = React.useState(false);
+
+  const onFile = async (f: File) => {
+    setBusy(true);
+    try {
+      const { rows, skipped } = parseGrowReport(await readSheet(f));
+      if (!rows.length) {
+        toast.error("לא נמצאו חיובי הוראת קבע בדוח");
+        return;
+      }
+      const r = actions.importGrowRows(rows);
+      setRes({ ...r, skipped });
+      setOpen(true);
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "לא הצלחתי לקרוא את הקובץ");
+    } finally {
+      setBusy(false);
+      if (ref.current) ref.current.value = "";
+    }
+  };
+
+  const assign = (r: ReportRow, pid: string) => {
+    if (!pid) return;
+    actions.importRowTo(r, pid);
+    setRes((x) =>
+      x ? { ...x, unmatched: x.unmatched.filter((u) => u.key !== r.key), added: x.added + 1 } : x,
+    );
+  };
+
+  return (
+    <Card className="space-y-3 p-5">
+      <h2 className="flex items-center gap-2 text-[17px] font-bold">
+        <FileSpreadsheet className="size-[18px] text-[color:var(--focus-primary)]" />
+        ייבוא דוח Grow (היסטוריה)
+      </h2>
+      <p className="text-sm text-[color:var(--focus-muted)]">
+        מעלים דוח חודשי מ-Grow (אקסל או CSV). כל חיוב הוראת קבע נרשם בהיסטוריה של הפרויקט המתאים לפי
+        טלפון או מייל, ותאריך תחילת ההוראה מתעדכן. אפשר להעלות כמה חודשים, והעלאה כפולה לא תיצור
+        כפילויות.
+      </p>
+      <input
+        ref={ref}
+        type="file"
+        hidden
+        accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void onFile(f);
+        }}
+      />
+      <Btn
+        variant="primary"
+        icon={FileSpreadsheet}
+        disabled={busy}
+        onClick={() => ref.current?.click()}
+      >
+        {busy ? "קורא…" : "בחר קובץ דוח"}
+      </Btn>
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title="הדוח יובא"
+        description="סיכום הייבוא"
+      >
+        {res && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl bg-[var(--focus-bg2)] p-3">
+                <div className="text-2xl font-bold text-[color:var(--focus-success)]">
+                  {res.added}
+                </div>
+                <div className="text-xs text-[color:var(--focus-muted)]">ריצות נוספו</div>
+              </div>
+              <div className="rounded-xl bg-[var(--focus-bg2)] p-3">
+                <div className="text-2xl font-bold">{res.dup}</div>
+                <div className="text-xs text-[color:var(--focus-muted)]">כבר היו</div>
+              </div>
+              <div className="rounded-xl bg-[var(--focus-bg2)] p-3">
+                <div
+                  className="text-2xl font-bold"
+                  style={{ color: res.unmatched.length ? C.warn : undefined }}
+                >
+                  {res.unmatched.length}
+                </div>
+                <div className="text-xs text-[color:var(--focus-muted)]">לא זוהו</div>
+              </div>
+            </div>
+            {res.skipped > 0 && (
+              <p className="text-xs text-[color:var(--focus-muted)]">
+                {res.skipped} שורות אחרות בדוח (זיכויים, עמלות, סיכומים) לא נספרו.
+              </p>
+            )}
+            {res.unmatched.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-semibold">לא זוהו לפי טלפון/מייל — שייך ידנית:</div>
+                <div className="max-h-72 space-y-2 overflow-auto">
+                  {res.unmatched.map((r) => (
+                    <div
+                      key={r.key}
+                      className="flex flex-wrap items-center gap-2 rounded-xl border border-[color:var(--focus-border)] p-2.5 text-sm"
+                    >
+                      <div className="min-w-32 flex-1">
+                        <div className="font-semibold">{r.name || r.email || r.phone}</div>
+                        <div className="text-xs text-[color:var(--focus-muted)]">
+                          {r.date} · {ils(r.sum)}
+                        </div>
+                      </div>
+                      <div className="w-full sm:w-48">
+                        <Select
+                          value=""
+                          onChange={(pid) => assign(r, pid)}
+                          options={["", ...db.projects.map((x) => x.id)]}
+                          labels={{
+                            "": "שייך לפרויקט…",
+                            ...Object.fromEntries(db.projects.map((x) => [x.id, x.name])),
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Btn variant="primary" className="w-full" onClick={() => setOpen(false)}>
+              סגור
+            </Btn>
+          </div>
+        )}
+      </Modal>
     </Card>
   );
 }

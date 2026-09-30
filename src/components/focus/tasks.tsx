@@ -193,7 +193,7 @@ export function TaskRow({
       </button>
 
       <div className="flex shrink-0 items-center gap-0.5">
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
+        <div className="hidden items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 sm:flex pointer-coarse:opacity-100">
           <IconBtn
             icon={Flag}
             label={`עדיפות: ${PRIORITIES[t.priority]} (לחץ לשינוי)`}
@@ -243,6 +243,42 @@ export function TaskMenu({ t }: { t: Task }) {
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="focus-popover min-w-48">
+        {isOpen(t) && (
+          <DropdownMenuItem
+            onClick={() => {
+              actions.startFocus(t.id);
+              nav.go("focus");
+            }}
+          >
+            <Play className="size-4" /> התחל פוקוס
+          </DropdownMenuItem>
+        )}
+        {isOpen(t) && (
+          <DropdownMenuItem
+            onClick={() =>
+              db.plan.ids.includes(t.id) ? actions.removeFromToday(t.id) : actions.toToday([t.id])
+            }
+          >
+            <Sun className="size-4" /> {db.plan.ids.includes(t.id) ? "הסר מהיום" : "הוסף להיום"}
+          </DropdownMenuItem>
+        )}
+        <div className="flex items-center gap-1 px-2 py-1.5">
+          <Flag className="size-4 text-[color:var(--focus-muted)]" />
+          {PRIORITY_ORDER.map((pr) => (
+            <button
+              key={pr}
+              onClick={() => actions.patchTask(t.id, { priority: pr })}
+              className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-semibold transition-colors",
+                t.priority === pr ? "text-white" : "hover:bg-[var(--focus-bg2)]",
+              )}
+              style={t.priority === pr ? { background: PRIO_COLOR[pr] } : { color: PRIO_COLOR[pr] }}
+            >
+              {PRIORITIES[pr]}
+            </button>
+          ))}
+        </div>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => nav.openTask(t.id)}>עריכה</DropdownMenuItem>
         <DropdownMenuItem onClick={() => actions.duplicate(t.id)}>
           <Copy className="size-4" /> שכפול

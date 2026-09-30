@@ -188,9 +188,9 @@ export function Dashboard() {
           )}
         </div>
 
-        <Card className="p-6 lg:col-span-4">
-          <h2 className="mb-4 text-[17px] font-bold">פעולות מהירות</h2>
-          <div className="grid grid-cols-2 gap-3">
+        <Card className="p-4 sm:p-6 lg:col-span-4">
+          <h2 className="mb-4 hidden text-[17px] font-bold sm:block">פעולות מהירות</h2>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-2 sm:gap-3">
             {[
               { l: "משימה חדשה", i: Plus, a: () => nav.quickAdd() },
               { l: "פרויקט חדש", i: FolderKanban, a: () => nav.editProject("new") },
@@ -200,14 +200,14 @@ export function Dashboard() {
               <button
                 key={x.l}
                 onClick={x.a}
-                className="flex h-11 items-center justify-center gap-2 rounded-md bg-[var(--focus-primary)] px-2 text-[15px] font-semibold text-white transition-colors hover:bg-[#4d41d6]"
+                className="flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl bg-[var(--focus-soft)] px-1 text-[12px] font-semibold text-[color:var(--focus-primary)] transition-colors active:scale-95 sm:h-11 sm:flex-row sm:gap-2 sm:rounded-md sm:bg-[var(--focus-primary)] sm:px-2 sm:text-[15px] sm:text-white sm:hover:bg-[#4d41d6]"
               >
-                <x.i className="size-4" />
+                <x.i className="size-5 sm:size-4" />
                 {x.l}
               </button>
             ))}
           </div>
-          <div className="mt-5 rounded-lg bg-[var(--focus-bg2)] p-4">
+          <div className="mt-3 rounded-lg bg-[var(--focus-bg2)] p-4 sm:mt-5">
             <div className="flex items-center justify-between text-[14px]">
               <span className="font-semibold">התקדמות היום</span>
               <span className="tabular-nums text-[color:var(--focus-muted)]">

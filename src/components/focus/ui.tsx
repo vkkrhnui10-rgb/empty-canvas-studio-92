@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetHeader,
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import type { LucideIcon } from "lucide-react";
+import { X as XIcon, type LucideIcon } from "lucide-react";
 import { accentFor } from "./constants";
 
 /* FOCUS primitives — thin, themed wrappers over the project's shadcn/ui components. */
@@ -157,7 +158,7 @@ export function Badge({
 }
 
 const fieldCls =
-  "rounded-lg bg-[var(--focus-card)] border-[color:var(--focus-border)] text-[15px] text-[color:var(--focus-foreground)] shadow-none placeholder:text-[color:var(--focus-muted)]/70 focus-visible:ring-[3px] focus-visible:ring-[var(--focus-primary)]/20 focus-visible:border-[color:var(--focus-primary)]";
+  "rounded-lg bg-[var(--focus-card)] border-[color:var(--focus-border)] text-[16px] text-[color:var(--focus-foreground)] shadow-none sm:text-[15px] placeholder:text-[color:var(--focus-muted)]/70 focus-visible:ring-[3px] focus-visible:ring-[var(--focus-primary)]/20 focus-visible:border-[color:var(--focus-primary)]";
 export const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   function Input({ className, ...p }, ref) {
     return <ShadInput ref={ref} className={cn(fieldCls, "h-10", className)} {...p} />;
@@ -308,13 +309,13 @@ export function Segmented<T extends string>({
   options: { value: T; label: string; icon?: LucideIcon }[];
 }) {
   return (
-    <div className="inline-flex flex-wrap gap-2">
+    <div className="no-scrollbar -mx-4 flex max-w-[100vw] gap-2 overflow-x-auto px-4 sm:mx-0 sm:inline-flex sm:max-w-none sm:flex-wrap sm:overflow-visible sm:px-0">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "inline-flex h-9 items-center gap-1.5 rounded-md border px-4 text-[14px] transition-colors",
+            "inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-4 text-[14px] transition-colors",
             value === o.value
               ? "border-transparent bg-[var(--focus-soft)] font-semibold text-[color:var(--focus-primary)]"
               : "border-[color:var(--focus-border)] bg-[var(--focus-card)] text-[color:var(--focus-muted)] hover:text-[color:var(--focus-foreground)]",
@@ -376,13 +377,21 @@ export function Drawer({
       <SheetContent
         side="left"
         dir="rtl"
-        className="focus-dialog w-full overflow-y-auto border-r p-0 sm:max-w-xl"
+        className="focus-dialog w-full overflow-y-auto border-r p-0 sm:max-w-xl [&>button.absolute]:hidden"
       >
-        <SheetHeader className="sticky top-0 z-10 border-b border-[color:var(--focus-border)] bg-[var(--focus-card)] px-6 py-4 text-right">
-          <SheetTitle className="text-xl font-bold">{title}</SheetTitle>
+        <SheetHeader className="sticky top-0 z-10 flex-row items-center gap-3 space-y-0 border-b border-[color:var(--focus-border)] bg-[var(--focus-card)]/95 px-5 py-3.5 text-right backdrop-blur sm:px-6 sm:py-4">
+          <SheetTitle className="min-w-0 flex-1 truncate text-xl font-bold">{title}</SheetTitle>
           <SheetDescription className="sr-only">{title}</SheetDescription>
+          <SheetClose
+            aria-label="סגור"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--focus-bg2)] text-[color:var(--focus-muted)] transition-colors hover:text-[color:var(--focus-foreground)]"
+          >
+            <XIcon className="size-4" />
+          </SheetClose>
         </SheetHeader>
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-5 py-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:px-6">
+          {children}
+        </div>
       </SheetContent>
     </Sheet>
   );
@@ -426,9 +435,9 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-[color:var(--focus-border)]">
-      <div className="-mb-px border-b-[3px] border-[color:var(--focus-navy)] pb-3">
-        <h1 className="text-[26px] leading-tight font-bold">{title}</h1>
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-x-3 gap-y-2 border-b border-[color:var(--focus-border)] sm:mb-6">
+      <div className="-mb-px min-w-0 border-b-[3px] border-[color:var(--focus-navy)] pb-3">
+        <h1 className="text-[23px] leading-tight font-bold sm:text-[26px]">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-[color:var(--focus-muted)]">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2 pb-3">{actions}</div>}
@@ -465,7 +474,9 @@ export function GradientStat({
         {Icon && <Icon className="size-[18px] opacity-80" />}
         {label}
       </div>
-      <div className="mt-4 truncate text-[34px] leading-none font-bold tabular-nums">{value}</div>
+      <div className="mt-3 truncate text-[28px] leading-none font-bold tabular-nums sm:mt-4 sm:text-[34px]">
+        {value}
+      </div>
       {sub && <div className="focus-on-gradient-muted mt-3 text-sm font-medium">{sub}</div>}
     </button>
   );
@@ -490,9 +501,9 @@ export function StatCard({
   onClick?: () => void;
 }) {
   return (
-    <Card onClick={onClick} className="p-5">
+    <Card onClick={onClick} className="p-4 sm:p-5">
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-[15px] font-bold">{label}</span>
+        <span className="truncate text-[13.5px] font-bold sm:text-[15px]">{label}</span>
         {Icon && (
           <span className="hidden size-9 shrink-0 items-center justify-center rounded-full bg-[var(--focus-soft)] text-[color:var(--focus-primary)] sm:flex">
             <Icon className="size-[18px]" />
@@ -500,14 +511,14 @@ export function StatCard({
         )}
       </div>
       <div
-        className="mt-3 truncate text-[28px] leading-none font-bold tabular-nums"
+        className="mt-2.5 truncate text-[21px] leading-none font-bold tabular-nums sm:mt-3 sm:text-[28px]"
         style={{ color }}
       >
         {value}
       </div>
       {sub && (
         <div
-          className="mt-2 truncate text-[13px] font-medium text-[color:var(--focus-muted)]"
+          className="mt-2 truncate text-[12px] font-medium text-[color:var(--focus-muted)] sm:text-[13px]"
           style={{ color: subColor }}
         >
           {sub}

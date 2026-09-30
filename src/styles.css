@@ -419,3 +419,18 @@ body {
     animation: none !important;
   }
 }
+
+/* horizontal scrollers without a visible bar (mobile tabs / filters / boards) */
+.no-scrollbar {
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+/* no grey flash on tap, smoother mobile feel */
+.focus-app button,
+.focus-app a,
+.focus-app [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}

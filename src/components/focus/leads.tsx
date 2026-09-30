@@ -167,8 +167,8 @@ export function LeadsView({ openId }: { openId?: string | null }) {
         </Card>
       ) : mode === "board" ? (
         <>
-          <div className="-mx-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
-            <div className="grid min-w-[880px] grid-cols-4 gap-4">
+          <div className="no-scrollbar -mx-4 snap-x snap-mandatory overflow-x-auto scroll-px-4 px-4 pb-2 md:mx-0 md:snap-none md:px-0">
+            <div className="grid auto-cols-[84%] grid-flow-col gap-3 md:min-w-[880px] md:auto-cols-auto md:grid-flow-row md:grid-cols-4 md:gap-4">
               {LEAD_STAGES.filter((s) => LEAD_OPEN.includes(s.v)).map((s) => {
                 const col = leads.filter((l) => l.stage === s.v);
                 const sum = col.reduce((a, l) => a + (l.budget || 0), 0);
@@ -186,7 +186,7 @@ export function LeadsView({ openId }: { openId?: string | null }) {
                       setOverCol(null);
                     }}
                     className={cn(
-                      "flex min-h-[260px] flex-col rounded-[14px] bg-[var(--focus-bg2)] p-2.5 transition-colors",
+                      "flex min-h-[260px] snap-start flex-col rounded-[14px] bg-[var(--focus-bg2)] p-2.5 transition-colors",
                       overCol === s.v &&
                         "bg-[var(--focus-soft)] ring-2 ring-[var(--focus-primary)]/40",
                     )}

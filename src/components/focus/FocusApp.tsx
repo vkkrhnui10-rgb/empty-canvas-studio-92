@@ -457,7 +457,10 @@ function Shell() {
 
           <main
             ref={mainRef}
-            className={cn("min-h-0 min-w-0 flex-1 overflow-y-auto", !isFocus && "pb-24 md:pb-0")}
+            className={cn(
+              "min-h-0 min-w-0 flex-1 overflow-y-auto",
+              !isFocus && "pb-[calc(7rem+env(safe-area-inset-bottom))] md:pb-0",
+            )}
           >
             <div key={view + (projectId ?? "")} className="focus-page-in min-h-full">
               {page}
@@ -509,12 +512,16 @@ function Shell() {
           <button
             aria-label="משימה חדשה"
             onClick={() => setQuick({ open: true })}
-            className="fixed bottom-20 left-4 z-30 flex size-14 items-center justify-center rounded-2xl bg-[var(--focus-primary)] text-white shadow-[0_12px_28px_-8px_rgb(91_79_232/0.75)] active:scale-95 md:hidden"
+            className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-4 z-30 flex size-14 items-center justify-center rounded-2xl bg-[var(--focus-primary)] text-white shadow-[0_12px_28px_-8px_rgb(91_79_232/0.75)] active:scale-95 md:hidden"
           >
             <Plus className="size-6" />
           </button>
           <Sheet open={mobileMenu} onOpenChange={setMobileMenu}>
-            <SheetContent side="right" dir="rtl" className="focus-dialog w-72 !bg-[#f3f4f8] p-4">
+            <SheetContent
+              side="right"
+              dir="rtl"
+              className="focus-dialog w-72 overflow-y-auto !bg-[#f3f4f8] p-4 pt-5 [&>button.absolute]:right-auto [&>button.absolute]:left-4 [&>button.absolute]:top-6"
+            >
               <SheetTitle className="mb-4">
                 <Logo dark />
               </SheetTitle>

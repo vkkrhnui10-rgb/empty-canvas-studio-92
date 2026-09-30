@@ -666,7 +666,7 @@ export function ProjectPage({ id }: { id: string }) {
               icon={Pencil}
               label="עריכת פרויקט"
               onClick={() => nav.editProject(p.id)}
-              className="border border-[color:var(--focus-border)]"
+              className="absolute top-3 left-3 border border-[color:var(--focus-border)] sm:static"
             />
           </div>
         </div>
@@ -682,7 +682,7 @@ export function ProjectPage({ id }: { id: string }) {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
-        <TabsList className="mb-6 h-auto w-full flex-wrap justify-start gap-0 rounded-none border-b border-[color:var(--focus-border)] bg-transparent p-0">
+        <TabsList className="no-scrollbar mb-6 h-auto w-full justify-start gap-0 overflow-x-auto overflow-y-hidden rounded-none border-b border-[color:var(--focus-border)] bg-transparent p-0 sm:flex-wrap">
           {[
             ["overview", "סקירה"],
             ["tasks", `משימות (${open.length})`],
@@ -699,7 +699,7 @@ export function ProjectPage({ id }: { id: string }) {
             <TabsTrigger
               key={v}
               value={v}
-              className="-mb-px flex-none rounded-none border-0 border-b-[3px] border-transparent bg-transparent px-4 py-3 text-[15px] text-[color:var(--focus-muted)] shadow-none hover:text-[color:var(--focus-foreground)] data-[state=active]:border-[color:var(--focus-navy)] data-[state=active]:bg-transparent data-[state=active]:font-bold data-[state=active]:text-[color:var(--focus-foreground)] data-[state=active]:shadow-none"
+              className="-mb-px flex-none whitespace-nowrap rounded-none border-0 border-b-[3px] border-transparent bg-transparent px-3.5 py-3 text-[15px] sm:px-4 text-[color:var(--focus-muted)] shadow-none hover:text-[color:var(--focus-foreground)] data-[state=active]:border-[color:var(--focus-navy)] data-[state=active]:bg-transparent data-[state=active]:font-bold data-[state=active]:text-[color:var(--focus-foreground)] data-[state=active]:shadow-none"
             >
               {l}
             </TabsTrigger>

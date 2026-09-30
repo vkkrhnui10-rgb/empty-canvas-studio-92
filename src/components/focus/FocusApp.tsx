@@ -19,13 +19,14 @@ import {
   Server,
   Settings as SettingsIcon,
   Timer,
+  UserPlus,
   Wallet,
 } from "lucide-react";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import { C } from "./constants";
+import { C, LEAD_OPEN } from "./constants";
 import {
   actions,
   activeTask,
@@ -39,7 +40,7 @@ import {
 import type { View } from "./types";
 import { NavCtx, type Nav } from "./nav";
 import { IconBtn, Kbd } from "./ui";
-import { fmtClock, greeting } from "./utils";
+import { fmtClock, greeting, todayStr } from "./utils";
 import { Dashboard } from "./dashboard";
 import { Planner } from "./planner";
 import { FocusView, useTick } from "./focus";
@@ -49,6 +50,7 @@ import { AlertsView, CpanelsView, FinancesView } from "./money";
 import { CommandPalette, SettingsView, ShortcutsDialog } from "./settings";
 import { QuickAddDialog, TaskDrawer } from "./tasks";
 import { InlineFloating, useFloating } from "./floating";
+import { LeadsView } from "./leads";
 
 const NAV: { v: View; l: string; i: typeof LayoutDashboard; group?: string }[] = [
   { v: "dashboard", l: "ראשי", i: LayoutDashboard, group: "העבודה שלי" },
@@ -58,7 +60,8 @@ const NAV: { v: View; l: string; i: typeof LayoutDashboard; group?: string }[] =
   { v: "tasks", l: "כל המשימות", i: ListTodo },
   { v: "projects", l: "פרויקטים", i: FolderKanban },
   { v: "weekly", l: "סיכום שבועי", i: BarChart3 },
-  { v: "cpanels", l: "פאנלי cPanel", i: Server, group: "העסק שלך" },
+  { v: "leads", l: "לידים", i: UserPlus, group: "העסק שלך" },
+  { v: "cpanels", l: "פאנלי cPanel", i: Server },
   { v: "finances", l: "כספים", i: Wallet },
   { v: "alerts", l: "התראות", i: Bell },
   { v: "settings", l: "הגדרות", i: SettingsIcon },
@@ -79,12 +82,13 @@ function parseHash(): { view: View; projectId: string | null } {
     "projects",
     "project",
     "cpanels",
+    "leads",
     "finances",
     "alerts",
     "settings",
   ];
   const view = (views.includes(v as View) ? v : "dashboard") as View;
-  return { view, projectId: view === "project" ? (id ?? null) : null };
+  return { view, projectId: view === "project" || view === "leads" ? (id ?? null) : null };
 }
 
 export default function FocusApp() {
@@ -142,9 +146,10 @@ function Shell() {
   }, []);
 
   const go = React.useCallback((v: View, pid?: string | null) => {
-    const hash = v === "project" && pid ? `#/project/${pid}` : `#/${v}`;
+    const withId = (v === "project" || v === "leads") && pid;
+    const hash = withId ? `#/${v}/${pid}` : `#/${v}`;
     if (window.location.hash !== hash) window.location.hash = hash;
-    setRoute({ view: v, projectId: v === "project" ? (pid ?? null) : null });
+    setRoute({ view: v, projectId: withId ? pid : null });
     setMobileMenu(false);
     mainRef.current?.scrollTo({ top: 0 });
   }, []);
@@ -230,6 +235,9 @@ function Shell() {
 
   const alerts = computeAlerts(db);
   const inboxCount = db.tasks.filter((x) => x.status === "inbox").length;
+  const leadsDue = db.leads.filter(
+    (l) => LEAD_OPEN.includes(l.stage) && l.followUp && l.followUp <= todayStr(),
+  ).length;
   const isFocus = view === "focus";
   const collapsed = db.settings.sidebarCollapsed;
 
@@ -256,6 +264,9 @@ function Shell() {
     case "project":
       page = projectId ? <ProjectPage id={projectId} /> : <ProjectsView />;
       break;
+    case "leads":
+      page = <LeadsView openId={projectId} />;
+      break;
     case "cpanels":
       page = <CpanelsView />;
       break;
@@ -275,7 +286,14 @@ function Shell() {
   const navItems = (onPick?: () => void, compact = false) =>
     NAV.map((n, i) => {
       const on = view === n.v || (n.v === "projects" && view === "project");
-      const badge = n.v === "alerts" ? alerts.length : n.v === "inbox" ? inboxCount : 0;
+      const badge =
+        n.v === "alerts"
+          ? alerts.length
+          : n.v === "inbox"
+            ? inboxCount
+            : n.v === "leads"
+              ? leadsDue
+              : 0;
       return (
         <React.Fragment key={n.v}>
           {n.group && !compact && (

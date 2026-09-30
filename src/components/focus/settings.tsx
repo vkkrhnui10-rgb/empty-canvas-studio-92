@@ -20,6 +20,7 @@ import {
   Wallet,
   Settings as SettingsIcon,
   Check,
+  UserPlus,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -331,6 +332,7 @@ export function CommandPalette({
     ["inbox", "תיבת משימות", Inbox],
     ["tasks", "כל המשימות", ListTodo],
     ["projects", "פרויקטים", FolderKanban],
+    ["leads", "לידים", UserPlus],
     ["cpanels", "פאנלי cPanel", Server],
     ["finances", "כספים", Wallet],
     ["alerts", "התראות", Bell],
@@ -400,6 +402,21 @@ export function CommandPalette({
                 </CommandItem>
               ))}
             </CommandGroup>
+            {db.leads.length > 0 && (
+              <CommandGroup heading="לידים">
+                {db.leads.map((l) => (
+                  <CommandItem
+                    key={l.id}
+                    value={`ליד ${l.name} ${l.business} ${l.phone} ${l.id}`}
+                    onSelect={() => run(() => nav.go("leads", l.id))}
+                  >
+                    <UserPlus />
+                    <span className="flex-1 truncate">{l.name}</span>
+                    <span className="text-xs text-[color:var(--focus-muted)]">{l.business}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
             <CommandGroup heading="משימות">
               {db.tasks
                 .filter((t) => t.status !== "cancelled")

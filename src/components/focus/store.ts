@@ -1,11 +1,25 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import type { Alert, Cpanel, DB, Project, Task, TaskStatus, TimerState } from "./types";
+import type {
+  Alert,
+  Cpanel,
+  DB,
+  Lead,
+  LeadNote,
+  LeadStage,
+  Project,
+  Task,
+  TaskStatus,
+  TimerState,
+} from "./types";
 import {
   CLOSED_PROJECT,
+  LEAD_OPEN,
+  LEAD_STAGES,
   OPEN_STATUSES,
   PROJECT_TEMPLATES,
   SITE_BAD,
+  SITE_TYPES,
   SO_STALE_DAYS,
   WAITING_STALE_DAYS,
 } from "./constants";
@@ -54,12 +68,32 @@ const emptyDB = (): DB => ({
   tasks: [],
   projects: [],
   cpanels: [],
+  leads: [],
   plan: { date: todayStr(), ids: [], closed: false },
   timer: null,
   sessions: [],
   activity: [],
   dismissed: {},
   settings: { ...defaultSettings },
+});
+
+export const newLead = (p: Partial<Lead> = {}): Lead => ({
+  id: uid(),
+  name: "",
+  business: "",
+  phone: "",
+  email: "",
+  source: "",
+  interest: "",
+  budget: 0,
+  stage: "new",
+  followUp: "",
+  notes: [],
+  lostReason: "",
+  projectId: "",
+  created: Date.now(),
+  updated: p.notes?.[0]?.at ?? p.created ?? Date.now(),
+  ...p,
 });
 
 export const newTask = (p: Partial<Task> = {}): Task => ({
@@ -175,6 +209,8 @@ function migrate(raw: any): DB {
         })),
       }),
     ),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    leads: (raw.leads || []).map((l: any) => newLead({ ...l, notes: l.notes || [] })),
     sessions: (raw.sessions || []).map((s: { projectId?: string }) => ({ projectId: "", ...s })),
     activity: raw.activity || [],
   };
@@ -421,6 +457,25 @@ export function computeAlerts(db: DB): Alert[] {
         kind: "nonext",
         txt: `אין משימה הבאה: ${p.name}`,
         projectId: p.id,
+        sev: "warn",
+      });
+  });
+  (db.leads || []).forEach((l) => {
+    if (!LEAD_OPEN.includes(l.stage)) return;
+    if (l.followUp && l.followUp <= today)
+      a.push({
+        id: `lead-fu-${l.id}-${l.followUp}`,
+        kind: "lead",
+        txt: `${l.followUp < today ? "פולואפ באיחור" : "פולואפ היום"}: ${l.name}${l.business ? ` (${l.business})` : ""}`,
+        leadId: l.id,
+        sev: l.followUp < addDays(today, -2) ? "bad" : "warn",
+      });
+    else if (!l.followUp && l.stage === "new" && now - l.created > 2 * 86400000)
+      a.push({
+        id: `lead-new-${l.id}`,
+        kind: "lead",
+        txt: `ליד חדש שעוד לא חזרת אליו: ${l.name}`,
+        leadId: l.id,
         sev: "warn",
       });
   });
@@ -764,6 +819,130 @@ export const actions = {
     );
   },
 
+  /* ---- leads ---- */
+  saveLead(l: Lead, firstNote?: string) {
+    update((d) => {
+      l.updated = Date.now();
+      const i = d.leads.findIndex((x) => x.id === l.id);
+      if (i > -1) d.leads[i] = l;
+      else {
+        if (firstNote?.trim())
+          l.notes = [
+            { id: uid(), txt: firstNote.trim(), at: Date.now(), kind: "note" },
+            ...l.notes,
+          ];
+        d.leads.unshift(l);
+      }
+    });
+  },
+  patchLead(id: string, patch: Partial<Lead>) {
+    update((d) => {
+      const l = d.leads.find((x) => x.id === id);
+      if (l) Object.assign(l, patch, { updated: Date.now() });
+    });
+  },
+  addLeadNote(id: string, txt: string, kind: LeadNote["kind"] = "note") {
+    if (!txt.trim()) return;
+    update((d) => {
+      const l = d.leads.find((x) => x.id === id);
+      if (!l) return;
+      l.notes.unshift({ id: uid(), txt: txt.trim(), at: Date.now(), kind });
+      l.updated = Date.now();
+      if (l.stage === "new" && kind !== "system") l.stage = "contacted";
+    });
+  },
+  deleteLeadNote(id: string, noteId: string) {
+    update((d) => {
+      const l = d.leads.find((x) => x.id === id);
+      if (l) l.notes = l.notes.filter((n) => n.id !== noteId);
+    });
+  },
+  setLeadStage(id: string, stage: LeadStage, reason = "") {
+    update((d) => {
+      const l = d.leads.find((x) => x.id === id);
+      if (!l || l.stage === stage) return;
+      const label = LEAD_STAGES.find((x) => x.v === stage)?.l ?? stage;
+      l.stage = stage;
+      if (stage === "lost") l.lostReason = reason;
+      if (!LEAD_OPEN.includes(stage)) l.followUp = "";
+      l.notes.unshift({
+        id: uid(),
+        txt: `שלב: ${label}${reason ? ` — ${reason}` : ""}`,
+        at: Date.now(),
+        kind: "system",
+      });
+      l.updated = Date.now();
+    });
+  },
+  leadFollowUp(id: string, days: number | "") {
+    update((d) => {
+      const l = d.leads.find((x) => x.id === id);
+      if (l) {
+        l.followUp = days === "" ? "" : addDays(todayStr(), days);
+        l.updated = Date.now();
+      }
+    });
+  },
+  deleteLead(id: string) {
+    undoable("הליד נמחק", () =>
+      update((d) => {
+        d.leads = d.leads.filter((l) => l.id !== id);
+      }),
+    );
+  },
+  /** won lead → real project (keeps contact details + conversation as a note) */
+  convertLead(id: string): string | undefined {
+    const l = state.leads.find((x) => x.id === id);
+    if (!l) return;
+    if (l.projectId && findProject(state, l.projectId)) return l.projectId;
+    const siteType = (SITE_TYPES as string[]).includes(l.interest)
+      ? (l.interest as Project["siteType"])
+      : "אחר";
+    const p = newProject({
+      name: l.business || l.name,
+      client: l.name,
+      phone: l.phone,
+      email: l.email,
+      siteType,
+      status: "אפיון",
+      buildPrice: l.budget || 0,
+      startDate: todayStr(),
+    });
+    const convo = l.notes
+      .filter((n) => n.kind !== "system")
+      .slice()
+      .reverse()
+      .map((n) => `• ${new Date(n.at).toLocaleDateString("he-IL")}: ${n.txt}`)
+      .join("\n");
+    if (convo)
+      p.notes = [
+        { id: uid(), txt: `מהשיחות בשלב הליד:\n${convo}`, created: Date.now(), pinned: true },
+      ];
+    update((d) => {
+      d.projects.unshift(p);
+      log(d, p.id, `הפרויקט נוצר מליד: ${l.name}`);
+      d.tasks.unshift(
+        newTask({
+          title: "פגישת אפיון / קבלת חומרים",
+          projectId: p.id,
+          status: "todo",
+          estMin: 60,
+          type: "אפיון",
+        }),
+      );
+      const x = d.leads.find((y) => y.id === id)!;
+      x.projectId = p.id;
+      if (x.stage !== "won") {
+        x.stage = "won";
+        x.notes.unshift({ id: uid(), txt: "נסגר — נפתח פרויקט", at: Date.now(), kind: "system" });
+      }
+      x.followUp = "";
+      x.updated = Date.now();
+    });
+    toast.success(`נפתח פרויקט: ${p.name}`);
+    return p.id;
+  },
+
   /* ---- misc ---- */
   dismissAlert(id: string, days?: number) {
     update((d) => {
@@ -840,6 +1019,70 @@ export const actions = {
       mk("לחדש הוראת קבע מול הלקוח", p2.id, { estMin: 10, type: "תשלום" });
       mk("בדיקת גיבויים חודשית", p3.id, { estMin: 20, repeat: "monthly", type: "תחזוקה" });
       mk("רעיון: דף נחיתה לעסקים", "", { status: "inbox" });
+      const h = 3600000;
+      d.leads.unshift(
+        newLead({
+          name: "מיכל לוי",
+          business: "קליניקה לפיזיותרפיה",
+          phone: "050-1234567",
+          source: "המלצה",
+          interest: "אתר תדמית",
+          budget: 4500,
+          stage: "proposal",
+          followUp: todayStr(),
+          created: Date.now() - 6 * 24 * h,
+          notes: [
+            {
+              id: uid(),
+              txt: "שלחתי הצעת מחיר ל-4,500 ₪ כולל 3 סבבי תיקונים",
+              at: Date.now() - 20 * h,
+              kind: "whatsapp",
+            },
+            {
+              id: uid(),
+              txt: "רוצה אתר נקי עם קביעת תורים. ראתה את האתר של כגוונא ואהבה. חשוב לה שיהיה מהיר בנייד",
+              at: Date.now() - 5 * 24 * h,
+              kind: "call",
+            },
+          ],
+        }),
+        newLead({
+          name: "יוסי כהן",
+          business: "נגריית כהן",
+          phone: "052-7654321",
+          source: "אינסטגרם",
+          interest: "חנות אונליין",
+          budget: 8000,
+          stage: "meeting",
+          followUp: addDays(todayStr(), 2),
+          created: Date.now() - 3 * 24 * h,
+          notes: [
+            {
+              id: uid(),
+              txt: "קבענו פגישה ביום ראשון בסטודיו שלו. רוצה למכור רהיטים בהזמנה אישית",
+              at: Date.now() - 2 * 24 * h,
+              kind: "call",
+            },
+          ],
+        }),
+        newLead({
+          name: "דנה אברהם",
+          business: "",
+          phone: "054-5550000",
+          source: "טופס באתר",
+          interest: "דף נחיתה",
+          stage: "new",
+          created: Date.now() - 3 * 24 * h,
+          notes: [
+            {
+              id: uid(),
+              txt: 'השאירה פרטים בטופס: "צריכה דף נחיתה לסדנה בנובמבר"',
+              at: Date.now() - 3 * 24 * h,
+              kind: "note",
+            },
+          ],
+        }),
+      );
     });
     toast.success("נטענו נתוני דוגמה — אפשר למחוק אותם מההגדרות");
   },

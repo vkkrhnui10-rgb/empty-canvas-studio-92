@@ -494,7 +494,7 @@ export function StatCard({
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-[15px] font-bold">{label}</span>
         {Icon && (
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--focus-soft)] text-[color:var(--focus-primary)]">
+          <span className="hidden size-9 shrink-0 items-center justify-center rounded-full bg-[var(--focus-soft)] text-[color:var(--focus-primary)] sm:flex">
             <Icon className="size-[18px]" />
           </span>
         )}

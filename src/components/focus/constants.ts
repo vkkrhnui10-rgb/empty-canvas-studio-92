@@ -177,3 +177,35 @@ export const FOCUS_QUOTES = [
   "מתחילים קטן, מסיימים גדול",
   "פחות רעש, יותר תוצאה",
 ];
+
+/* ---------------- leads ---------------- */
+export const LEAD_STAGES: { v: import("./types").LeadStage; l: string; c: string }[] = [
+  { v: "new", l: "חדש", c: "#5b4fe8" },
+  { v: "contacted", l: "בשיחה", c: "#0e9f95" },
+  { v: "meeting", l: "פגישה", c: "#7c5cf5" },
+  { v: "proposal", l: "הצעת מחיר", c: "#c96a06" },
+  { v: "won", l: "נסגר ✓", c: "#138a55" },
+  { v: "lost", l: "לא רלוונטי", c: "#8a8fae" },
+];
+export const LEAD_OPEN: import("./types").LeadStage[] = ["new", "contacted", "meeting", "proposal"];
+export const leadStage = (v: string) => LEAD_STAGES.find((x) => x.v === v) ?? LEAD_STAGES[0];
+export const LEAD_SOURCES = [
+  "וואטסאפ",
+  "המלצה",
+  "אינסטגרם",
+  "פייסבוק",
+  "גוגל",
+  "טופס באתר",
+  "לקוח קיים",
+  "אחר",
+];
+export const LEAD_INTERESTS = [
+  "אתר תדמית",
+  "חנות אונליין",
+  "דף נחיתה",
+  "אתר WordPress",
+  "אתר AI",
+  "שדרוג אתר קיים",
+  "אחסון ותחזוקה",
+  "אחר",
+];

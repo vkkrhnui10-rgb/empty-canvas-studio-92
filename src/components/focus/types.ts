@@ -88,6 +88,31 @@ export interface Project {
   created: number;
 }
 
+export type LeadStage = "new" | "contacted" | "meeting" | "proposal" | "won" | "lost";
+export interface LeadNote {
+  id: string;
+  txt: string;
+  at: number;
+  kind?: "note" | "call" | "whatsapp" | "meeting" | "system";
+}
+export interface Lead {
+  id: string;
+  name: string;
+  business: string;
+  phone: string;
+  email: string;
+  source: string;
+  interest: string;
+  budget: number;
+  stage: LeadStage;
+  followUp: string; // yyyy-mm-dd or ""
+  notes: LeadNote[];
+  lostReason: string;
+  projectId: string;
+  created: number;
+  updated: number;
+}
+
 export interface Cpanel {
   id: string;
   name: string;
@@ -140,6 +165,7 @@ export interface DB {
   tasks: Task[];
   projects: Project[];
   cpanels: Cpanel[];
+  leads: Lead[];
   plan: { date: string; ids: string[]; closed: boolean };
   timer: TimerState | null;
   sessions: Session[];
@@ -159,6 +185,7 @@ export type View =
   | "projects"
   | "project"
   | "cpanels"
+  | "leads"
   | "finances"
   | "alerts"
   | "settings";
@@ -168,6 +195,7 @@ export interface Alert {
   txt: string;
   projectId?: string;
   taskId?: string;
+  leadId?: string;
   sev: "bad" | "warn";
   kind: string;
 }

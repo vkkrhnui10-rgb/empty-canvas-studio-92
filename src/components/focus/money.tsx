@@ -472,7 +472,12 @@ export function AlertCard({ a }: { a: Alert }) {
             פתח משימה
           </Btn>
         )}
-        {!a.taskId && (
+        {a.leadId && (
+          <Btn size="sm" variant="soft" onClick={() => nav.go("leads", a.leadId)}>
+            פתח ליד
+          </Btn>
+        )}
+        {!a.taskId && !a.leadId && (
           <Btn
             size="sm"
             variant="soft"

@@ -178,3 +178,22 @@ export const greeting = () => {
           ? "ערב טוב"
           : "לילה טוב";
 };
+
+export const timeAgo = (ms: number) => {
+  const d = Math.floor((Date.now() - ms) / 60000);
+  if (d < 1) return "עכשיו";
+  if (d < 60) return `לפני ${d} דק׳`;
+  const h = Math.floor(d / 60);
+  if (h < 24) return h === 1 ? "לפני שעה" : `לפני ${h} שעות`;
+  const days = Math.floor(h / 24);
+  if (days === 1) return "אתמול";
+  if (days < 30) return `לפני ${days} ימים`;
+  return new Date(ms).toLocaleDateString("he-IL", { day: "numeric", month: "short" });
+};
+
+/** 050-123-4567 → https://wa.me/972501234567 */
+export const waLink = (phone: string, text = "") => {
+  let d = (phone || "").replace(/\D/g, "");
+  if (d.startsWith("0")) d = "972" + d.slice(1);
+  return `https://wa.me/${d}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
+};

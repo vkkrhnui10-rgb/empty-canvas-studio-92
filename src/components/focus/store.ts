@@ -14,6 +14,7 @@ import type {
 } from "./types";
 import {
   CLOSED_PROJECT,
+  DEFAULT_SO_MSG,
   LEAD_OPEN,
   LEAD_STAGES,
   OPEN_STATUSES,
@@ -61,6 +62,8 @@ export const defaultSettings: DB["settings"] = {
   sidebarCollapsed: false,
   pipCompact: false,
   ownerName: "",
+  cardUpdateUrl: "",
+  soMsgTemplate: DEFAULT_SO_MSG,
 };
 
 const emptyDB = (): DB => ({
@@ -144,6 +147,8 @@ export const newProject = (p: Partial<Project> = {}): Project => ({
   soChecked: "",
   soFailedAt: "",
   soFailReason: "",
+  cardUrl: "",
+  soMsgAt: 0,
   notes: [],
   issues: [],
   created: Date.now(),
@@ -819,6 +824,15 @@ export const actions = {
     );
   },
 
+  soMessageSent(id: string) {
+    update((d) => {
+      const p = findProject(d, id);
+      if (!p) return;
+      p.soMsgAt = Date.now();
+      log(d, id, "נשלחה בוואטסאפ בקשה לעדכון כרטיס");
+    });
+  },
+
   /* ---- leads ---- */
   saveLead(l: Lead, firstNote?: string) {
     update((d) => {
@@ -983,6 +997,7 @@ export const actions = {
     const p2 = newProject({
       name: "משרד עו״ד זוהר",
       client: "שוקי",
+      phone: "052-3334444",
       siteType: "אתר AI",
       status: "תיקונים",
       buildPrice: 3800,

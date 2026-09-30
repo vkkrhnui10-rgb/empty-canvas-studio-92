@@ -209,3 +209,11 @@ export const LEAD_INTERESTS = [
   "אחסון ותחזוקה",
   "אחר",
 ];
+
+/* WhatsApp message for a failed / missing standing order.
+ * placeholders: {שם} {אתר} {סכום} {קישור} {שולח} — a line whose placeholder is empty is dropped */
+export const DEFAULT_SO_MSG = `היי {שם},
+רציתי לעדכן שהחיוב החודשי על האחסון של {אתר} ({סכום}) לא עבר.
+אפשר לעדכן את פרטי הכרטיס בקישור הזה: {קישור}
+תודה רבה!
+{שולח}`;

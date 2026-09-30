@@ -43,6 +43,7 @@ import {
 } from "./ui";
 import { balanceOf, ils, payState, uid } from "./utils";
 import { useNav } from "./nav";
+import { SoWhatsAppBtn } from "./billing";
 
 /* ============================ Finances ============================ */
 export function FinancesView() {
@@ -156,6 +157,11 @@ export function FinancesView() {
               <span className="w-32 text-xs text-[color:var(--focus-muted)]">
                 נבדק: {p.soChecked || "מעולם"}
               </span>
+              {["failed", "none", "check"].includes(p.soState) ? (
+                <SoWhatsAppBtn p={p} size="icon" />
+              ) : (
+                <span className="size-8" />
+              )}
             </button>
           ))}
         </Card>
@@ -476,6 +482,9 @@ export function AlertCard({ a }: { a: Alert }) {
           <Btn size="sm" variant="soft" onClick={() => nav.go("leads", a.leadId)}>
             פתח ליד
           </Btn>
+        )}
+        {a.kind === "so" && p && p.soState !== "ok" && (
+          <SoWhatsAppBtn p={p} label="וואטסאפ לעדכון כרטיס" />
         )}
         {!a.taskId && !a.leadId && (
           <Btn

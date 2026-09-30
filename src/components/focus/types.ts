@@ -83,6 +83,10 @@ export interface Project {
   soChecked: string;
   soFailedAt: string;
   soFailReason: string;
+  /** personal card-update / payment page (overrides the default in settings) */
+  cardUrl: string;
+  /** last time a card-update WhatsApp was sent */
+  soMsgAt: number;
   notes: Note[];
   issues: Issue[];
   created: number;
@@ -158,6 +162,8 @@ export interface Settings {
   sidebarCollapsed: boolean;
   pipCompact: boolean;
   ownerName: string;
+  cardUpdateUrl: string;
+  soMsgTemplate: string;
 }
 
 export interface DB {

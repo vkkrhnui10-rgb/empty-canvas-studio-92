@@ -60,8 +60,9 @@ import {
   Textarea,
   ProjectAvatar,
 } from "./ui";
-import { balanceOf, daysSince, fmtDate, ils, isOpen, payState, uid } from "./utils";
+import { balanceOf, daysSince, fmtDate, ils, isOpen, payState, timeAgo, uid } from "./utils";
 import { useNav } from "./nav";
+import { SoWhatsAppBtn } from "./billing";
 import { TaskRow } from "./tasks";
 
 const siteColor = (s: string) =>
@@ -1154,9 +1155,35 @@ function HostingTab({ p }: { p: Project }) {
               {p.soFailReason && ` · ${p.soFailReason}`}
             </div>
           )}
+          <Field
+            label="קישור לעדכון כרטיס ללקוח הזה"
+            hint={
+              db.settings.cardUpdateUrl
+                ? "ריק = הקישור הכללי מההגדרות"
+                : "אפשר להגדיר קישור כללי בהגדרות"
+            }
+          >
+            <Input
+              dir="ltr"
+              className="text-right"
+              value={p.cardUrl}
+              onChange={(e) => patch({ cardUrl: e.target.value })}
+              placeholder="https://pay.grow.link/…"
+            />
+          </Field>
           {stale && p.soState !== "failed" && (
             <div className="text-xs text-[color:var(--focus-warning)]">
               לא נבדקה מעל 35 יום — כדאי לוודא שהחיוב עובר.
+            </div>
+          )}
+          {["failed", "none", "check"].includes(p.soState) && (
+            <div className="flex flex-wrap items-center gap-2 rounded-xl bg-[#128c4a]/[0.07] p-3">
+              <SoWhatsAppBtn p={p} size="md" />
+              <span className="text-xs text-[color:var(--focus-muted)]">
+                {p.soMsgAt
+                  ? `נשלחה הודעה ${timeAgo(p.soMsgAt)}`
+                  : "הודעה מוכנה עם השם והקישור — רק ללחוץ שלח"}
+              </span>
             </div>
           )}
           <div className="flex flex-wrap gap-2">

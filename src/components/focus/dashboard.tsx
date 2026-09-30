@@ -32,6 +32,7 @@ import {
 } from "./ui";
 import { balanceOf, fmtMin, greeting, ils, isOpen, todayStr } from "./utils";
 import { useNav } from "./nav";
+import { SoWhatsAppBtn } from "./billing";
 import { TaskRow } from "./tasks";
 
 export function Dashboard() {
@@ -287,23 +288,32 @@ export function Dashboard() {
             />
           ) : (
             <div className="divide-y divide-[color:var(--focus-border)]">
-              {alerts.slice(0, 6).map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() =>
-                    a.projectId
-                      ? nav.go("project", a.projectId)
-                      : a.taskId && nav.openTask(a.taskId)
-                  }
-                  className="flex w-full items-center gap-3 py-3 text-right text-[15px] transition-colors hover:text-[color:var(--focus-primary)]"
-                >
-                  <AlertTriangle
-                    className="size-4 shrink-0"
-                    style={{ color: a.sev === "bad" ? C.bad : C.warn }}
-                  />
-                  <span className="line-clamp-1 flex-1">{a.txt}</span>
-                </button>
-              ))}
+              {alerts.slice(0, 6).map((a) => {
+                const ap = a.projectId ? db.projects.find((x) => x.id === a.projectId) : undefined;
+                return (
+                  <div key={a.id} className="flex items-center gap-2">
+                    <button
+                      onClick={() =>
+                        a.leadId
+                          ? nav.go("leads", a.leadId)
+                          : a.projectId
+                            ? nav.go("project", a.projectId)
+                            : a.taskId && nav.openTask(a.taskId)
+                      }
+                      className="flex min-w-0 flex-1 items-center gap-3 py-3 text-right text-[15px] transition-colors hover:text-[color:var(--focus-primary)]"
+                    >
+                      <AlertTriangle
+                        className="size-4 shrink-0"
+                        style={{ color: a.sev === "bad" ? C.bad : C.warn }}
+                      />
+                      <span className="line-clamp-1 flex-1">{a.txt}</span>
+                    </button>
+                    {a.kind === "so" && ap && ap.soState !== "ok" && (
+                      <SoWhatsAppBtn p={ap} size="icon" />
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </Card>

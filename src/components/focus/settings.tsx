@@ -21,6 +21,7 @@ import {
   Settings as SettingsIcon,
   Check,
   UserPlus,
+  MessageCircle,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -33,9 +34,10 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { Switch } from "@/components/ui/switch";
-import { C, PRIORITIES, STATUSES } from "./constants";
-import { actions, activeTask, getState, useDB } from "./store";
-import { Btn, Card, Field, Input, Kbd, Modal, PageHeader } from "./ui";
+import { C, DEFAULT_SO_MSG, PRIORITIES, STATUSES } from "./constants";
+import { actions, activeTask, getState, newProject, useDB } from "./store";
+import { Btn, Card, Field, Input, Kbd, Modal, PageHeader, Textarea } from "./ui";
+import { soMessage } from "./billing";
 import { download, todayStr } from "./utils";
 import { useNav } from "./nav";
 import { pipSupported } from "./floating";
@@ -163,6 +165,8 @@ export function SettingsView() {
           }}
         />
       </Card>
+
+      <BillingMsgCard />
 
       <Card className="space-y-3 p-5">
         <h2 className="flex items-center gap-2 text-[17px] font-bold">
@@ -447,5 +451,68 @@ export function CommandPalette({
         </Command>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function BillingMsgCard() {
+  const db = useDB();
+  const s = db.settings;
+  const sample =
+    db.projects.find((p) => p.hosted && p.soState === "failed") ??
+    db.projects.find((p) => p.hosted) ??
+    newProject({ name: "האתר של הלקוח", client: "ישראל", hostPrice: s.defaultHostPrice });
+  return (
+    <Card className="space-y-4 p-5">
+      <h2 className="flex items-center gap-2 text-[17px] font-bold">
+        <MessageCircle className="size-[18px] text-[#128c4a]" />
+        הודעת וואטסאפ לעדכון כרטיס
+      </h2>
+      <p className="text-sm text-[color:var(--focus-muted)]">
+        כשהוראת קבע נכשלת — לחיצה אחת פותחת וואטסאפ ללקוח עם ההודעה הזו, מוכנה לשליחה.
+      </p>
+      <Field
+        label="קישור כללי לעדכון כרטיס"
+        hint="למשל דף תשלום / עדכון אמצעי תשלום ב-Grow. אפשר להגדיר קישור אישי לכל לקוח בלשונית האחסון."
+      >
+        <Input
+          dir="ltr"
+          className="text-right"
+          value={s.cardUpdateUrl}
+          onChange={(e) => actions.settings({ cardUpdateUrl: e.target.value })}
+          placeholder="https://pay.grow.link/…"
+        />
+      </Field>
+      <Field
+        label="נוסח ההודעה"
+        hint={
+          <>
+            משתנים: {"{שם}"} {"{אתר}"} {"{סכום}"} {"{קישור}"} {"{שולח}"} · שורה עם קישור/שולח ריק לא
+            תישלח
+          </>
+        }
+      >
+        <Textarea
+          rows={6}
+          value={s.soMsgTemplate}
+          onChange={(e) => actions.settings({ soMsgTemplate: e.target.value })}
+        />
+      </Field>
+      <div>
+        <div className="mb-1.5 flex items-center justify-between text-[13px] font-medium text-[color:var(--focus-muted)]">
+          <span>תצוגה מקדימה ({sample.name})</span>
+          {s.soMsgTemplate !== DEFAULT_SO_MSG && (
+            <button
+              onClick={() => actions.settings({ soMsgTemplate: DEFAULT_SO_MSG })}
+              className="font-semibold text-[color:var(--focus-primary)] hover:underline"
+            >
+              חזור לנוסח המקורי
+            </button>
+          )}
+        </div>
+        <div className="ml-auto max-w-sm rounded-2xl rounded-tr-sm bg-[#dcf8c6] px-3.5 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-[#111b21] shadow-sm">
+          {soMessage(sample, s)}
+        </div>
+      </div>
+    </Card>
   );
 }

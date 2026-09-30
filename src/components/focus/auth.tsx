@@ -152,6 +152,28 @@ export function LoginScreen() {
           >
             {mode === "up" ? "יצירת חשבון" : mode === "reset" ? "שלח קישור איפוס" : "כניסה"}
           </Btn>
+          {mode !== "reset" && (
+            <>
+              <div className="flex items-center gap-3 pt-1">
+                <span className="h-px flex-1 bg-[color:var(--focus-border,rgba(0,0,0,0.1))]" />
+                <span className="text-xs text-[color:var(--focus-muted)]">או</span>
+                <span className="h-px flex-1 bg-[color:var(--focus-border,rgba(0,0,0,0.1))]" />
+              </div>
+              <button
+                type="button"
+                onClick={google_}
+                disabled={google || busy}
+                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border border-[color:var(--focus-border,rgba(0,0,0,0.12))] bg-white text-sm font-semibold text-[#3c4043] transition hover:bg-[#f7f8fa] disabled:opacity-60"
+              >
+                {google ? (
+                  <Loader2 className="size-5 animate-spin" />
+                ) : (
+                  <GoogleIcon className="size-5" />
+                )}
+                המשך עם Google
+              </button>
+            </>
+          )}
         </form>
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm">

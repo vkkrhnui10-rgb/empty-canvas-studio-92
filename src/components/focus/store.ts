@@ -5,6 +5,7 @@ import type {
   Cpanel,
   DB,
   GrowEntry,
+  SORun,
   Lead,
   LeadNote,
   LeadStage,
@@ -150,6 +151,9 @@ export const newProject = (p: Partial<Project> = {}): Project => ({
   soChecked: "",
   soFailedAt: "",
   soFailReason: "",
+  doneDate: "",
+  soStart: "",
+  soRuns: [],
   cardUrl: "",
   cardUrlAt: 0,
   soMsgAt: 0,
@@ -537,6 +541,14 @@ function advance(d: DB, fromId: string) {
   return next;
 }
 
+/** append a standing-order run (skips a duplicate Grow transaction) */
+function addRun(p: Project, r: Omit<SORun, "id">) {
+  if (!Array.isArray(p.soRuns)) p.soRuns = [];
+  if (r.txCode && p.soRuns.some((x) => x.txCode === r.txCode)) return;
+  p.soRuns.unshift({ id: uid(), ...r });
+  p.soRuns.sort((a, b) => b.date.localeCompare(a.date));
+}
+
 /** what a Grow event means for a project — mutates the draft, returns a short summary */
 function applyGrowToProject(d: DB, p: Project, e: GrowEntry, day: string) {
   const date = day || todayStr();
@@ -544,6 +556,7 @@ function applyGrowToProject(d: DB, p: Project, e: GrowEntry, day: string) {
     p.soState = "failed";
     p.soFailedAt = date;
     p.soFailReason = e.error;
+    addRun(p, { date, ok: false, sum: e.sum, note: e.error, txCode: e.txCode });
     log(d, p.id, `Grow: חיוב הוראת קבע נכשל${e.error ? ` — ${e.error}` : ""}`);
     return "סומן: הוראת קבע נכשלה";
   }
@@ -552,6 +565,8 @@ function applyGrowToProject(d: DB, p: Project, e: GrowEntry, day: string) {
     p.soLastCharge = date;
     p.soChecked = todayStr();
     p.soFailReason = "";
+    if (!p.soStart) p.soStart = date;
+    addRun(p, { date, ok: true, sum: e.sum, note: "", txCode: e.txCode });
     log(d, p.id, `Grow: חיוב הוראת קבע עבר (${e.sum} ₪)`);
     return "הוראת קבע: תקינה";
   }
@@ -818,6 +833,8 @@ export const actions = {
       const p = findProject(d, id);
       if (!p) return;
       Object.assign(p, patch);
+      if (patch.status === "הושק" && !p.doneDate) p.doneDate = todayStr();
+      if (patch.soState === "ok" && !p.soStart) p.soStart = todayStr();
       if (logTxt) log(d, id, logTxt);
     });
   },
@@ -839,7 +856,26 @@ export const actions = {
       p.soFailedAt = todayStr();
       p.soFailReason = reason;
       p.soLastCharge = todayStr();
+      addRun(p, { date: todayStr(), ok: false, sum: 0, note: reason });
       log(d, id, `חיוב הוראת קבע נכשל${reason ? `: ${reason}` : ""}`);
+    });
+  },
+  addSORun(id: string, r: { date: string; ok: boolean; sum: number; note: string }) {
+    update((d) => {
+      const p = findProject(d, id);
+      if (!p) return;
+      addRun(p, r);
+      if (r.ok) {
+        if (!p.soStart || r.date < p.soStart) p.soStart = r.date;
+        if (!p.soLastCharge || r.date > p.soLastCharge) p.soLastCharge = r.date;
+      }
+      log(d, id, `נרשמה ריצת הוראת קבע (${r.ok ? "עברה" : "נכשלה"}) — ${r.date}`);
+    });
+  },
+  deleteSORun(id: string, runId: string) {
+    update((d) => {
+      const p = findProject(d, id);
+      if (p) p.soRuns = (p.soRuns || []).filter((x) => x.id !== runId);
     });
   },
   markSOOk(id: string) {

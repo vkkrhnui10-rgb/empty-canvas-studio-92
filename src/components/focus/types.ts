@@ -73,6 +73,15 @@ export interface GrowEntry {
   applied: string; // what FOCUS did with it
 }
 
+export interface SORun {
+  id: string;
+  date: string;
+  ok: boolean;
+  sum: number;
+  note: string;
+  txCode?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -102,6 +111,12 @@ export interface Project {
   soChecked: string;
   soFailedAt: string;
   soFailReason: string;
+  /** when the project was finished (auto-set when status becomes "הושק") */
+  doneDate: string;
+  /** when the standing order started */
+  soStart: string;
+  /** history of standing-order runs */
+  soRuns: SORun[];
   /** last card-update link pasted from Grow's email (they change per failed charge) */
   cardUrl: string;
   cardUrlAt: number;

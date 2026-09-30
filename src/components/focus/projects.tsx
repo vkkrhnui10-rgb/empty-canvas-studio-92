@@ -471,6 +471,23 @@ export function ProjectDrawer({ id, onClose }: { id: string | "new" | null; onCl
         </div>
 
         <div className="grid grid-cols-2 gap-3">
+          <Field label="התחלת פרויקט">
+            <Input
+              type="date"
+              value={f.startDate}
+              onChange={(e) => s("startDate", e.target.value)}
+            />
+          </Field>
+          <Field label="סיום פרויקט" hint="נקבע לבד כשהסטטוס הופך ל״הושק״">
+            <Input
+              type="date"
+              value={f.doneDate}
+              onChange={(e) => s("doneDate", e.target.value)}
+            />
+          </Field>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
           <Field label="מחיר בנייה (₪)">
             <Input
               type="number"
@@ -517,6 +534,13 @@ export function ProjectDrawer({ id, onClose }: { id: string | "new" | null; onCl
                   onChange={(v) => s("soState", v as SOState)}
                   options={Object.keys(SO_STATES)}
                   labels={SO_STATES}
+                />
+              </Field>
+              <Field label="תחילת הוראת קבע">
+                <Input
+                  type="date"
+                  value={f.soStart}
+                  onChange={(e) => s("soStart", e.target.value)}
                 />
               </Field>
               {custom && (
@@ -637,6 +661,7 @@ export function ProjectPage({ id }: { id: string }) {
                 <Badge color={C.violet}>{p.status}</Badge>
                 <Badge color={siteColor(p.siteState)}>{p.siteState}</Badge>
               </div>
+              <ProjectDates p={p} />
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1149,6 +1174,14 @@ function HostingTab({ p }: { p: Project }) {
               />
             </Field>
           </div>
+          <Field label="תחילת הוראת קבע">
+            <Input
+              type="date"
+              value={p.soStart}
+              onChange={(e) => patch({ soStart: e.target.value })}
+            />
+          </Field>
+          <SoRuns p={p} />
           {p.soState === "failed" && (
             <div className="rounded-xl bg-[color:color-mix(in_oklab,var(--focus-destructive)_12%,transparent)] p-3 text-sm text-[color:var(--focus-destructive)]">
               נכשל: {fmtDate(p.soFailedAt)}
@@ -1416,6 +1449,122 @@ function NotesTab({ p }: { p: Project }) {
         <div className="text-center text-sm text-[color:var(--focus-muted)]">
           הערות פנימיות — רק אתה רואה אותן.
         </div>
+      )}
+    </div>
+  );
+}
+
+
+/* ---------------- dates line + standing-order history ---------------- */
+function okRuns(p: Project) {
+  return (p.soRuns || []).filter((r) => r.ok).length;
+}
+
+export function ProjectDates({ p }: { p: Project }) {
+  const runs = okRuns(p);
+  const items: [string, string][] = [];
+  if (p.startDate) items.push(["התחיל", fmtDate(p.startDate)]);
+  if (p.doneDate) items.push(["הסתיים", fmtDate(p.doneDate)]);
+  if (p.hosted && p.soStart) items.push(["הוראת קבע מ-", fmtDate(p.soStart)]);
+  if (p.hosted && runs > 0) items.push(["ריצות שעברו", String(runs)]);
+  if (!items.length) return null;
+  return (
+    <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[color:var(--focus-muted)]">
+      {items.map(([l, v]) => (
+        <span key={l}>
+          {l} <b className="font-semibold text-[color:var(--focus-foreground)]">{v}</b>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function SoRuns({ p }: { p: Project }) {
+  const runs = p.soRuns || [];
+  const [open, setOpen] = React.useState(false);
+  const [date, setDate] = React.useState(() => new Date().toISOString().slice(0, 10));
+  const [sum, setSum] = React.useState(String(p.hostPrice || ""));
+  const ok = runs.filter((r) => r.ok).length;
+  const bad = runs.length - ok;
+  return (
+    <div className="space-y-3 rounded-xl bg-[var(--focus-bg2)] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="text-sm">
+          <b>{ok}</b> ריצות עברו
+          {bad > 0 && (
+            <>
+              {" · "}
+              <span className="text-[color:var(--focus-destructive)]">
+                <b>{bad}</b> נכשלו
+              </span>
+            </>
+          )}
+        </div>
+        <Btn size="sm" variant="soft" icon={Plus} onClick={() => setOpen((v) => !v)}>
+          רשום ריצה
+        </Btn>
+      </div>
+      {open && (
+        <div className="flex flex-wrap items-end gap-2">
+          <Field label="תאריך">
+            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </Field>
+          <Field label="סכום (₪)">
+            <Input
+              type="number"
+              step="0.01"
+              value={sum}
+              onChange={(e) => setSum(e.target.value)}
+              className="w-28"
+            />
+          </Field>
+          <Btn
+            size="sm"
+            variant="primary"
+            onClick={() => {
+              actions.addSORun(p.id, { date, ok: true, sum: +sum || 0, note: "" });
+              setOpen(false);
+            }}
+          >
+            עברה
+          </Btn>
+          <Btn
+            size="sm"
+            variant="danger"
+            onClick={() => {
+              actions.addSORun(p.id, { date, ok: false, sum: +sum || 0, note: "" });
+              setOpen(false);
+            }}
+          >
+            נכשלה
+          </Btn>
+        </div>
+      )}
+      {runs.length === 0 ? (
+        <p className="text-xs text-[color:var(--focus-muted)]">
+          עוד אין ריצות. חיובים מ-Grow יירשמו כאן לבד, ואפשר גם לרשום ידנית.
+        </p>
+      ) : (
+        <ul className="max-h-56 divide-y divide-[color:var(--focus-border)] overflow-auto text-sm">
+          {runs.map((r) => (
+            <li key={r.id} className="flex items-center gap-2 py-1.5">
+              <span
+                className="size-2 shrink-0 rounded-full"
+                style={{ background: r.ok ? C.ok : C.bad }}
+              />
+              <span className="tabular-nums">{fmtDate(r.date)}</span>
+              <span className="min-w-0 flex-1 truncate text-xs text-[color:var(--focus-muted)]">
+                {r.ok ? "עברה" : `נכשלה${r.note ? ` · ${r.note}` : ""}`}
+              </span>
+              {r.sum > 0 && <span className="tabular-nums">{ils(r.sum)}</span>}
+              <IconBtn
+                icon={X}
+                label="מחק"
+                onClick={() => actions.deleteSORun(p.id, r.id)}
+              />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

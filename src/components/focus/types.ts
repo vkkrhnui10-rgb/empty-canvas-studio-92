@@ -220,6 +220,8 @@ export interface DB {
   cpanels: Cpanel[];
   leads: Lead[];
   growLog: GrowEntry[];
+  /** people (normalized phone / email) whose Grow report rows are skipped on import */
+  growIgnore: string[];
   plan: { date: string; ids: string[]; closed: boolean };
   timer: TimerState | null;
   sessions: Session[];

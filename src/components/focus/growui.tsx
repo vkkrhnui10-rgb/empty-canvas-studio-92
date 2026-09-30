@@ -306,6 +306,7 @@ interface ImportResult {
   added: number;
   dup: number;
   skipped: number;
+  ignored: number;
   unmatched: ReportRow[];
 }
 
@@ -402,6 +403,11 @@ export function GrowImportCard() {
                 <div className="text-xs text-[color:var(--focus-muted)]">לא זוהו</div>
               </div>
             </div>
+            {res.ignored > 0 && (
+              <p className="text-xs text-[color:var(--focus-muted)]">
+                {res.ignored} חיובים של לקוחות ברשימת ההתעלמות לא נספרו.
+              </p>
+            )}
             {res.skipped > 0 && (
               <p className="text-xs text-[color:var(--focus-muted)]">
                 {res.skipped} שורות אחרות בדוח (זיכויים, עמלות, סיכומים) לא נספרו.
@@ -409,7 +415,23 @@ export function GrowImportCard() {
             )}
             {res.unmatched.length > 0 && (
               <div className="space-y-2">
-                <div className="text-sm font-semibold">לא זוהו לפי טלפון/מייל — שייך ידנית:</div>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-semibold">
+                    לא זוהו לפי טלפון/מייל — שייך, או התעלם (לקוחות שהסתיימו):
+                  </div>
+                  <Btn
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      actions.ignoreGrowRows(res.unmatched);
+                      setRes((x) =>
+                        x ? { ...x, ignored: x.ignored + x.unmatched.length, unmatched: [] } : x,
+                      );
+                    }}
+                  >
+                    התעלם מכולם
+                  </Btn>
+                </div>
                 <div className="max-h-72 space-y-2 overflow-auto">
                   {res.unmatched.map((r) => (
                     <div
@@ -422,6 +444,24 @@ export function GrowImportCard() {
                           {r.date} · {ils(r.sum)}
                         </div>
                       </div>
+                      <Btn
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          actions.ignoreGrowRows([r]);
+                          setRes((x) =>
+                            x
+                              ? {
+                                  ...x,
+                                  ignored: x.ignored + 1,
+                                  unmatched: x.unmatched.filter((u) => u.key !== r.key),
+                                }
+                              : x,
+                          );
+                        }}
+                      >
+                        התעלם
+                      </Btn>
                       <div className="w-full sm:w-48">
                         <Select
                           value=""

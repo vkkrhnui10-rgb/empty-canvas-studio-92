@@ -78,6 +78,7 @@ const emptyDB = (): DB => ({
   cpanels: [],
   leads: [],
   growLog: [],
+  growIgnore: [],
   plan: { date: todayStr(), ids: [], closed: false },
   timer: null,
   sessions: [],
@@ -229,6 +230,7 @@ function migrate(raw: any): DB {
     sessions: (raw.sessions || []).map((s: { projectId?: string }) => ({ projectId: "", ...s })),
     activity: raw.activity || [],
     growLog: raw.growLog || [],
+    growIgnore: Array.isArray(raw.growIgnore) ? raw.growIgnore : [],
   };
   if (db.timer && !("mode" in db.timer)) db.timer = { ...(db.timer as TimerState), mode: "work" };
   return rollDay(db);
@@ -549,6 +551,12 @@ function addRun(p: Project, r: Omit<SORun, "id">) {
   if (r.txCode && p.soRuns.some((x) => x.txCode === r.txCode)) return;
   p.soRuns.unshift({ id: uid(), ...r });
   p.soRuns.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** what identifies a report row's person: normalized phone and/or email */
+function ignoreKeys(r: ReportRow): string[] {
+  const ph = normPhone(r.phone);
+  return [ph.length >= 9 ? ph : "", r.email.trim().toLowerCase()].filter(Boolean);
 }
 
 /** one successful run from a report; false when that transaction is already recorded */
@@ -1027,13 +1035,16 @@ export const actions = {
   importGrowRows(rows: ReportRow[]) {
     let added = 0;
     let dup = 0;
+    let ignored = 0;
     const unmatched: ReportRow[] = [];
     const touched = new Map<string, number>();
     update((d) => {
+      const skip = new Set(d.growIgnore || []);
       for (const r of rows) {
         const p = d.projects.find((x) => samePerson(x, r));
         if (!p) {
-          unmatched.push(r);
+          if (ignoreKeys(r).some((k) => skip.has(k))) ignored++;
+          else unmatched.push(r);
           continue;
         }
         if (importRun(p, r)) {
@@ -1043,7 +1054,20 @@ export const actions = {
       }
       for (const [id, n] of touched) log(d, id, `יובאו ${n} ריצות הוראת קבע מדוח Grow`);
     });
-    return { added, dup, unmatched };
+    return { added, dup, ignored, unmatched };
+  },
+  /** stop asking about these people (past clients that are no longer projects) */
+  ignoreGrowRows(rows: ReportRow[]) {
+    update((d) => {
+      const set = new Set(d.growIgnore || []);
+      rows.forEach((r) => ignoreKeys(r).forEach((k) => set.add(k)));
+      d.growIgnore = [...set];
+    });
+  },
+  clearGrowIgnore() {
+    update((d) => {
+      d.growIgnore = [];
+    });
   },
   /** link one report row to a project by hand (remembers its phone/email for next time) */
   importRowTo(r: ReportRow, projectId: string) {

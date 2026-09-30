@@ -148,6 +148,7 @@ export const newProject = (p: Partial<Project> = {}): Project => ({
   soFailedAt: "",
   soFailReason: "",
   cardUrl: "",
+  cardUrlAt: 0,
   soMsgAt: 0,
   notes: [],
   issues: [],
@@ -824,11 +825,15 @@ export const actions = {
     );
   },
 
-  soMessageSent(id: string) {
+  soMessageSent(id: string, link?: string) {
     update((d) => {
       const p = findProject(d, id);
       if (!p) return;
       p.soMsgAt = Date.now();
+      if (link) {
+        p.cardUrl = link;
+        p.cardUrlAt = Date.now();
+      }
       log(d, id, "נשלחה בוואטסאפ בקשה לעדכון כרטיס");
     });
   },

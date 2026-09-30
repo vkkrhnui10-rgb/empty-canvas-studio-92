@@ -83,8 +83,9 @@ export interface Project {
   soChecked: string;
   soFailedAt: string;
   soFailReason: string;
-  /** personal card-update / payment page (overrides the default in settings) */
+  /** last card-update link pasted from Grow's email (they change per failed charge) */
   cardUrl: string;
+  cardUrlAt: number;
   /** last time a card-update WhatsApp was sent */
   soMsgAt: number;
   notes: Note[];

@@ -138,10 +138,13 @@ export function FinancesView() {
       ) : (
         <Card className="divide-y divide-[color:var(--focus-border)] px-2 py-1">
           {hostList.map((p) => (
-            <button
+            <div
               key={p.id}
+              role="button"
+              tabIndex={0}
               onClick={() => nav.go("project", p.id)}
-              className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-3 py-3 text-right text-sm transition-colors hover:bg-[var(--focus-bg2)]"
+              onKeyDown={(e) => e.key === "Enter" && nav.go("project", p.id)}
+              className="flex w-full cursor-pointer flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-3 py-3 text-right text-sm transition-colors hover:bg-[var(--focus-bg2)]"
             >
               <ProjectAvatar id={p.id} name={p.name} size={34} />
               <span className="min-w-32 flex-1 truncate font-semibold">{p.name}</span>
@@ -162,7 +165,7 @@ export function FinancesView() {
               ) : (
                 <span className="size-8" />
               )}
-            </button>
+            </div>
           ))}
         </Card>
       )}

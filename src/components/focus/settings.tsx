@@ -468,11 +468,12 @@ function BillingMsgCard() {
         הודעת וואטסאפ לעדכון כרטיס
       </h2>
       <p className="text-sm text-[color:var(--focus-muted)]">
-        כשהוראת קבע נכשלת — לחיצה אחת פותחת וואטסאפ ללקוח עם ההודעה הזו, מוכנה לשליחה.
+        כשהוראת קבע נכשלת — לוחצים על הכפתור הירוק, מדביקים את הקישור מהמייל של Grow, וההודעה נפתחת
+        בוואטסאפ מוכנה לשליחה.
       </p>
       <Field
-        label="קישור כללי לעדכון כרטיס"
-        hint="למשל דף תשלום / עדכון אמצעי תשלום ב-Grow. אפשר להגדיר קישור אישי לכל לקוח בלשונית האחסון."
+        label="קישור קבוע (לא חובה)"
+        hint="Grow שולחים קישור חדש במייל בכל חיוב שנכשל — מדביקים אותו בחלון השליחה. כאן רק אם יש לך דף עדכון קבוע, כגיבוי."
       >
         <Input
           dir="ltr"
@@ -510,7 +511,7 @@ function BillingMsgCard() {
           )}
         </div>
         <div className="ml-auto max-w-sm rounded-2xl rounded-tr-sm bg-[#dcf8c6] px-3.5 py-2.5 text-[14px] leading-relaxed whitespace-pre-wrap text-[#111b21] shadow-sm">
-          {soMessage(sample, s)}
+          {soMessage(sample, s, s.cardUpdateUrl || "https://…")}
         </div>
       </div>
     </Card>

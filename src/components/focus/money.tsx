@@ -13,6 +13,7 @@ import {
   Trash2,
   Wallet,
   Sparkles,
+  Receipt,
 } from "lucide-react";
 import { C, SO_STATES } from "./constants";
 import { actions, computeAlerts, findProject, useDB } from "./store";
@@ -23,6 +24,7 @@ import {
   Card,
   EmptyState,
   Field,
+  GradientStat,
   Input,
   Modal,
   PageHeader,
@@ -54,8 +56,6 @@ export function FinancesView() {
   );
 
   const kpis: [string, string, string?][] = [
-    ["יתרה לגבייה", ils(totBal), totBal ? C.warn : C.ok],
-    ["הכנסה חודשית מאחסון", ils(monthly), C.mint],
     ["הכנסה שנתית משוערת", ils(monthly * 12)],
     ["סך מחירי בנייה", ils(totBuild)],
     ["סך ששולם", ils(totPaid), C.ok],
@@ -65,13 +65,29 @@ export function FinancesView() {
   ];
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8">
       <PageHeader title="כספים" subtitle="תמונת מצב — לא הנהלת חשבונות." />
-      <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="mb-5 grid gap-5 sm:grid-cols-2">
+        <GradientStat
+          label="יתרה לגבייה"
+          value={ils(totBal)}
+          sub={`${debtors.length} לקוחות עם יתרה פתוחה`}
+          icon={Wallet}
+          onClick={() => setTab("collect")}
+        />
+        <GradientStat
+          label="הכנסה חודשית מאחסון"
+          value={ils(monthly)}
+          sub={`${hosted.length} אתרים פעילים · ${soBad} הוראות קבע לטיפול`}
+          icon={Receipt}
+          onClick={() => setTab("hosting")}
+        />
+      </div>
+      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
         {kpis.map(([l, v, c]) => (
-          <Card key={l} className="p-4">
-            <div className="text-xs text-[color:var(--focus-muted)]">{l}</div>
-            <div className="mt-1.5 truncate text-xl font-bold tabular-nums" style={{ color: c }}>
+          <Card key={l} className="p-5">
+            <div className="text-[15px] font-bold">{l}</div>
+            <div className="mt-2 truncate text-[24px] font-bold tabular-nums" style={{ color: c }}>
               {v}
             </div>
           </Card>
@@ -225,7 +241,7 @@ export function CpanelsView() {
             return (
               <Card key={c.id} className="p-5">
                 <div className="flex items-start gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--focus-bg2)] text-[color:var(--focus-mint)]">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--focus-bg2)] text-[color:var(--focus-primary)]">
                     <Server className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -255,7 +271,7 @@ export function CpanelsView() {
                       <button
                         key={s.id}
                         onClick={() => nav.go("project", s.id)}
-                        className="rounded-full border border-[color:var(--focus-border)] px-2.5 py-0.5 text-xs hover:border-[color:var(--focus-mint)] hover:text-[color:var(--focus-mint)]"
+                        className="rounded-full border border-[color:var(--focus-border)] px-2.5 py-0.5 text-xs hover:border-[color:var(--focus-primary)] hover:text-[color:var(--focus-primary)]"
                       >
                         {s.name}
                       </button>

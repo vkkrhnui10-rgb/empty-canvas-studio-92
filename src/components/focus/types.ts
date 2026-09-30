@@ -132,6 +132,7 @@ export interface Settings {
   taskFilter: string;
   sidebarCollapsed: boolean;
   pipCompact: boolean;
+  ownerName: string;
 }
 
 export interface DB {

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;500;600;700;800&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -145,145 +145,277 @@
 }
 
 /* =====================================================================
- * FOCUS design system — tokens (always-dark, calm navy + mint accent)
+ * FOCUS design system — clean light SaaS (Grow-inspired):
+ * white surfaces, deep-navy chrome, indigo accent, Assistant font.
+ * Focus screen + floating panel use the dark navy scope (.focus-dark).
  * ===================================================================== */
 :root {
-  --focus-background: oklch(0.1918 0.0354 261.3);   /* #0B1424 */
-  --focus-bg2: oklch(0.2404 0.0457 261.79);           /* #131F35 */
-  --focus-card: oklch(0.273 0.0591 263.99);           /* #182644 */
-  --focus-card-hi: oklch(0.3173 0.0689 262.97);       /* #1F3155 */
-  --focus-border: oklch(0.3921 0.0697 262.47);        /* #31456B */
-  --focus-foreground: oklch(0.978 0.0062 255.47);     /* #F5F8FC */
-  --focus-muted: oklch(0.7802 0.0464 263.03);         /* #A8B8D6 */
-  --focus-mint: oklch(0.8975 0.0985 180.36);          /* #8FF3E0 */
-  --focus-mint-foreground: oklch(0.2331 0.0353 182.54);
-  --focus-violet: oklch(0.7361 0.1359 272.05);        /* #8CA3FF */
-  --focus-pink: oklch(0.8134 0.1093 340.21);          /* #F2A6D8 */
-  --focus-success: oklch(0.8124 0.1132 157.51);
-  --focus-warning: oklch(0.8028 0.1148 67.41);
-  --focus-destructive: oklch(0.7481 0.1206 20.32);
+  --focus-background: #f6f7fb;
+  --focus-bg2: #f2f3f8;
+  --focus-card: #ffffff;
+  --focus-card-hi: #eceefa;
+  --focus-border: #e3e5ef;
+  --focus-foreground: #16183d;
+  --focus-muted: #6b6f93;
+  --focus-primary: #5b4fe8;
+  --focus-primary-foreground: #ffffff;
+  --focus-soft: #efedfe;
+  --focus-navy: #0b0c3f;
+  --focus-violet: #7c5cf5;
+  --focus-teal: #0e9f95;
+  --focus-pink: #d6408e;
+  --focus-success: #138a55;
+  --focus-warning: #c96a06;
+  --focus-destructive: #d63a3a;
+  --focus-shadow: 0 1px 2px rgb(22 24 61 / 0.04), 0 4px 16px -6px rgb(22 24 61 / 0.08);
+}
 
-  /* map shadcn/ui tokens onto the FOCUS palette so every primitive
-     (select, dropdown, dialog, tooltip, command…) matches out of the box */
-  --radius: 0.875rem;
+/* dark navy scope — focus screen, day summary, floating panel */
+.focus-dark {
+  --focus-background: #0b0c3f;
+  --focus-bg2: #14165a;
+  --focus-card: #171a61;
+  --focus-card-hi: #211f78;
+  --focus-border: #33378a;
+  --focus-foreground: #ffffff;
+  --focus-muted: #b5b8e6;
+  --focus-primary: #9087ff;
+  --focus-primary-foreground: #0b0c3f;
+  --focus-soft: #2a2785;
+  --focus-violet: #b69bff;
+  --focus-teal: #5fe0d2;
+  --focus-pink: #ff8fc8;
+  --focus-success: #5ee0a0;
+  --focus-warning: #ffc071;
+  --focus-destructive: #ff8b8b;
+  --focus-shadow: 0 10px 40px -12px rgb(0 0 0 / 0.5);
+  color: var(--focus-foreground);
+  color-scheme: dark;
+}
+
+/* map shadcn/ui tokens onto the active FOCUS palette (re-evaluated per scope) */
+:root,
+.focus-dark {
+  --radius: 0.625rem;
   --background: var(--focus-background);
   --foreground: var(--focus-foreground);
   --card: var(--focus-card);
   --card-foreground: var(--focus-foreground);
   --popover: var(--focus-card);
   --popover-foreground: var(--focus-foreground);
-  --primary: var(--focus-mint);
-  --primary-foreground: var(--focus-mint-foreground);
-  --secondary: var(--focus-card-hi);
-  --secondary-foreground: var(--focus-foreground);
+  --primary: var(--focus-primary);
+  --primary-foreground: var(--focus-primary-foreground);
+  --secondary: var(--focus-soft);
+  --secondary-foreground: var(--focus-primary);
   --muted: var(--focus-bg2);
   --muted-foreground: var(--focus-muted);
-  --accent: var(--focus-card-hi);
+  --accent: var(--focus-bg2);
   --accent-foreground: var(--focus-foreground);
   --destructive: var(--focus-destructive);
-  --destructive-foreground: oklch(0.2 0.05 20);
+  --destructive-foreground: #ffffff;
   --border: var(--focus-border);
   --input: var(--focus-border);
-  --ring: var(--focus-mint);
-  color-scheme: dark;
+  --ring: var(--focus-primary);
 }
 
-html, body {
+html,
+body {
   background: var(--focus-background);
   color: var(--focus-foreground);
-  font-family: "Heebo", system-ui, sans-serif;
+  font-family: "Assistant", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
 .focus-app {
   min-height: 100dvh;
-  font-family: "Heebo", system-ui, sans-serif;
+  font-family: "Assistant", system-ui, sans-serif;
+  font-size: 15px;
   color: var(--focus-foreground);
-  background:
-    radial-gradient(1100px 520px at 88% -8%, color-mix(in oklab, var(--focus-violet) 12%, transparent), transparent 62%),
-    radial-gradient(900px 480px at 0% 0%, color-mix(in oklab, var(--focus-mint) 7%, transparent), transparent 60%),
-    var(--focus-background);
+  background: var(--focus-background);
 }
-.focus-app ::selection { background: color-mix(in oklab, var(--focus-mint) 35%, transparent); }
-.focus-app * { scrollbar-width: thin; scrollbar-color: var(--focus-border) transparent; }
-.tabular-nums { font-variant-numeric: tabular-nums; }
+.focus-app ::selection {
+  background: color-mix(in oklab, var(--focus-primary) 22%, transparent);
+}
+.focus-app * {
+  scrollbar-width: thin;
+  scrollbar-color: #cfd2e3 transparent;
+}
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
 
-/* glass cards */
+/* chrome */
+.focus-topbar {
+  background: var(--focus-navy);
+  color: #fff;
+  box-shadow: inset 0 -4px 0 0 var(--focus-primary);
+}
+.focus-sidebar {
+  background: #f3f4f8;
+}
+
+/* cards */
 .focus-card {
-  background: color-mix(in oklab, var(--focus-card) 78%, transparent);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 1px 0 0 color-mix(in oklab, white 5%, transparent) inset, 0 12px 32px -18px rgb(0 0 0 / 0.55);
+  background: var(--focus-card);
+  box-shadow: var(--focus-shadow);
 }
 .focus-card-hi {
-  background:
-    radial-gradient(600px 200px at 100% 0%, color-mix(in oklab, var(--focus-mint) 9%, transparent), transparent 70%),
-    color-mix(in oklab, var(--focus-card-hi) 82%, transparent);
-  box-shadow: 0 1px 0 0 color-mix(in oklab, var(--focus-mint) 16%, transparent) inset, 0 18px 50px -22px rgb(0 0 0 / 0.7);
+  background: var(--focus-card);
+  box-shadow:
+    0 1px 2px rgb(22 24 61 / 0.05),
+    0 12px 32px -14px rgb(91 79 232 / 0.25);
 }
-.focus-hero { border-color: color-mix(in oklab, var(--focus-mint) 22%, var(--focus-border)); }
+/* signature: deep navy → indigo gradient cards (Grow "זיכוי קרוב") */
+.focus-gradient {
+  background:
+    radial-gradient(120% 140% at 0% 100%, rgb(124 92 245 / 0.55), transparent 55%),
+    linear-gradient(135deg, #10114a 0%, #231c86 60%, #3b2bb8 100%);
+  color: #fff;
+  border: 0;
+  box-shadow: 0 14px 34px -16px rgb(35 28 134 / 0.7);
+}
+.focus-gradient .focus-on-gradient-muted {
+  color: rgb(255 255 255 / 0.72);
+}
 
 /* overlays rendered in portals */
-.focus-dialog, .focus-popover {
+.focus-dialog,
+.focus-popover {
   background: var(--focus-card) !important;
   color: var(--focus-foreground) !important;
   border-color: var(--focus-border) !important;
-  font-family: "Heebo", system-ui, sans-serif;
+  font-family: "Assistant", system-ui, sans-serif;
 }
-.focus-command [cmdk-group-heading] { color: var(--focus-muted); font-size: 11px; padding: 8px 12px 4px; }
-.focus-command [cmdk-item] { border-radius: 12px; padding: 10px 12px; gap: 10px; }
-.focus-command [cmdk-item][data-selected="true"] { background: var(--focus-card-hi); }
-.focus-command [cmdk-input] { height: 52px; font-size: 15px; }
+.focus-command [cmdk-group-heading] {
+  color: var(--focus-muted);
+  font-size: 12px;
+  padding: 8px 12px 4px;
+}
+.focus-command [cmdk-item] {
+  border-radius: 8px;
+  padding: 10px 12px;
+  gap: 10px;
+}
+.focus-command [cmdk-item][data-selected="true"] {
+  background: var(--focus-soft);
+  color: var(--focus-primary);
+}
+.focus-command [cmdk-input] {
+  height: 52px;
+  font-size: 16px;
+}
 .focus-toast {
-  background: var(--focus-card-hi) !important;
-  color: var(--focus-foreground) !important;
-  border: 1px solid var(--focus-border) !important;
-  border-radius: 16px !important;
-  font-family: "Heebo", system-ui, sans-serif !important;
+  background: var(--focus-navy) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 10px !important;
+  font-family: "Assistant", system-ui, sans-serif !important;
+  font-size: 14px !important;
 }
-.focus-toast-action { background: var(--focus-mint) !important; color: var(--focus-mint-foreground) !important; border-radius: 10px !important; font-weight: 600 !important; }
+.focus-toast-action {
+  background: #fff !important;
+  color: var(--focus-navy) !important;
+  border-radius: 6px !important;
+  font-weight: 700 !important;
+}
 
-/* admin screens: calm */
-.focus-calm { background: transparent; }
+/* table look (Grow-style lists) */
+.focus-table-head {
+  color: var(--focus-foreground);
+  font-weight: 700;
+  font-size: 14px;
+}
 
-/* focus screen: soft moving light waves */
-.focus-stage { position: relative; isolation: isolate; }
-.focus-stage::before, .focus-stage::after {
-  content: ""; position: absolute; inset: -20%; z-index: 0; pointer-events: none;
+/* focus screen: deep navy with slow indigo light */
+.focus-stage {
+  position: relative;
+  isolation: isolate;
+  background: var(--focus-background);
+}
+.focus-stage::before,
+.focus-stage::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
   background:
-    radial-gradient(40% 30% at 30% 20%, color-mix(in oklab, var(--focus-violet) 18%, transparent), transparent 70%),
-    radial-gradient(35% 28% at 75% 35%, color-mix(in oklab, var(--focus-mint) 12%, transparent), transparent 70%);
+    radial-gradient(40% 30% at 28% 18%, rgb(124 92 245 / 0.35), transparent 70%),
+    radial-gradient(35% 28% at 78% 35%, rgb(91 79 232 / 0.28), transparent 70%);
   filter: blur(40px);
   animation: focus-drift 26s ease-in-out infinite alternate;
 }
 .focus-stage::after {
-  background: radial-gradient(45% 30% at 60% 85%, color-mix(in oklab, oklch(0.55 0.15 255) 22%, transparent), transparent 70%);
-  animation-duration: 34s; animation-direction: alternate-reverse;
+  background: radial-gradient(45% 30% at 60% 88%, rgb(59 43 184 / 0.4), transparent 70%);
+  animation-duration: 34s;
+  animation-direction: alternate-reverse;
 }
 @keyframes focus-drift {
-  0% { transform: translate3d(0,0,0) scale(1); }
-  100% { transform: translate3d(-4%, 3%, 0) scale(1.08); }
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  100% {
+    transform: translate3d(-4%, 3%, 0) scale(1.08);
+  }
 }
 
 /* floating panel */
-.focus-float-shell, .focus-pip-body {
-  background: color-mix(in oklab, var(--focus-background) 94%, black);
-  border: 1px solid var(--focus-border);
-  box-shadow: 0 24px 60px -12px rgb(0 0 0 / 0.65), 0 0 0 1px color-mix(in oklab, white 4%, transparent) inset;
+.focus-float-shell,
+.focus-pip-body {
+  background: linear-gradient(160deg, #10114a 0%, #0b0c3f 100%);
+  border: 1px solid #2c2f7e;
+  box-shadow: 0 24px 60px -12px rgb(11 12 63 / 0.55);
 }
-.focus-pip-body { margin: 0; height: 100vh; border: 0; overflow: hidden; font-family: "Heebo", system-ui, sans-serif; color: var(--focus-foreground); }
+.focus-pip-body {
+  margin: 0;
+  height: 100vh;
+  border: 0;
+  overflow: hidden;
+  font-family: "Assistant", system-ui, sans-serif;
+  color: #fff;
+}
 
 /* micro-animations (fast, 150–250ms) */
-.focus-page-in { animation: focus-in 220ms ease-out both; }
-@keyframes focus-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.focus-burst { animation: focus-burst 700ms cubic-bezier(.2,.9,.3,1.2) both; }
+.focus-page-in {
+  animation: focus-in 200ms ease-out both;
+}
+@keyframes focus-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.focus-burst {
+  animation: focus-burst 700ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
 @keyframes focus-burst {
-  0% { opacity: 0; transform: scale(.4); }
-  35% { opacity: 1; transform: scale(1.08); }
-  70% { opacity: 1; transform: scale(1); }
-  100% { opacity: 0; transform: scale(1.15); }
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .focus-stage::before, .focus-stage::after, .focus-page-in, .focus-burst { animation: none !important; }
+  .focus-stage::before,
+  .focus-stage::after,
+  .focus-page-in,
+  .focus-burst {
+    animation: none !important;
+  }
 }

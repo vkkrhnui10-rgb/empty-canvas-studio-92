@@ -99,7 +99,7 @@ export function Planner() {
             c={free < 0 ? C.warn : C.ok}
           />
           <div className="min-w-40 flex-1">
-            <Progress value={(total / cap) * 100} color={free < 0 ? C.warn : C.mint} />
+            <Progress value={(total / cap) * 100} color={free < 0 ? C.warn : C.primary} />
           </div>
         </div>
         {byProject.length > 0 && (
@@ -138,7 +138,7 @@ export function Planner() {
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pl-1">
             {sugg.length > 0 && !q && (
               <div>
-                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[color:var(--focus-mint)]">
+                <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-[color:var(--focus-primary)]">
                   <Sparkles className="size-3.5" /> מומלץ להיום
                 </div>
                 <div className="space-y-1.5">
@@ -167,7 +167,7 @@ export function Planner() {
         <Card
           className={cn(
             "flex flex-col p-4 transition-colors lg:max-h-[calc(100vh-280px)]",
-            over === "zone" && "border-[color:var(--focus-mint)]",
+            over === "zone" && "border-[color:var(--focus-primary)]",
           )}
           onDragOver={(e) => {
             e.preventDefault();
@@ -204,7 +204,7 @@ export function Planner() {
                   }}
                   className={cn(
                     "group flex cursor-grab items-center gap-3 rounded-2xl bg-[var(--focus-bg2)] px-3 py-2.5 transition-all active:cursor-grabbing",
-                    over === t.id && "translate-y-1 shadow-[0_-2px_0_0_var(--focus-mint)]",
+                    over === t.id && "translate-y-1 shadow-[0_-2px_0_0_var(--focus-primary)]",
                     t.status === "done" && "opacity-50",
                   )}
                 >
@@ -277,7 +277,7 @@ function PoolRow({ t, reasons, highlight }: { t: Task; reasons?: string[]; highl
       onDragStart={(e) => e.dataTransfer.setData(DT, t.id)}
       className={cn(
         "group flex cursor-grab items-center gap-2.5 rounded-2xl border border-transparent bg-[var(--focus-bg2)] px-3 py-2.5 transition-colors hover:border-[color:var(--focus-border)] active:cursor-grabbing",
-        highlight && "border-[color:color-mix(in_oklab,var(--focus-mint)_25%,transparent)]",
+        highlight && "border-[color:color-mix(in_oklab,var(--focus-primary)_25%,transparent)]",
       )}
     >
       <div className="min-w-0 flex-1">
@@ -296,7 +296,7 @@ function PoolRow({ t, reasons, highlight }: { t: Task; reasons?: string[]; highl
           {t.due && <span style={{ color: overdue ? C.bad : undefined }}>{fmtDate(t.due)}</span>}
           {t.status === "inbox" && <Badge>בתיבה</Badge>}
           {reasons?.map((r) => (
-            <Badge key={r} color={r === "באיחור" ? C.bad : C.mint}>
+            <Badge key={r} color={r === "באיחור" ? C.bad : C.primary}>
               {r}
             </Badge>
           ))}
@@ -305,7 +305,7 @@ function PoolRow({ t, reasons, highlight }: { t: Task; reasons?: string[]; highl
       <button
         aria-label="הוסף להיום"
         onClick={() => actions.toToday([t.id])}
-        className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--focus-card-hi)] text-[color:var(--focus-mint)] transition-colors hover:bg-[var(--focus-mint)] hover:text-[color:var(--focus-mint-foreground)]"
+        className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[var(--focus-card-hi)] text-[color:var(--focus-primary)] transition-colors hover:bg-[var(--focus-primary)] hover:text-[color:var(--focus-primary-foreground)]"
       >
         <ArrowLeft className="size-4" />
       </button>

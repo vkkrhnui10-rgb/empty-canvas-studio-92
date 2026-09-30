@@ -165,3 +165,16 @@ export function chime() {
     /* audio unavailable */
   }
 }
+
+export const greeting = () => {
+  const h = new Date().getHours();
+  return h < 5
+    ? "לילה טוב"
+    : h < 12
+      ? "בוקר טוב"
+      : h < 17
+        ? "צהריים טובים"
+        : h < 21
+          ? "ערב טוב"
+          : "לילה טוב";
+};

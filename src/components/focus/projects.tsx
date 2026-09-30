@@ -217,7 +217,7 @@ export function ProjectCard({ p, compact }: { p: Project; compact?: boolean }) {
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 font-semibold">
             <span className="truncate">{p.name}</span>
-            {pinned && <Pin className="size-3 shrink-0 text-[color:var(--focus-mint)]" />}
+            {pinned && <Pin className="size-3 shrink-0 text-[color:var(--focus-primary)]" />}
           </div>
           <div className="mt-0.5 truncate text-xs text-[color:var(--focus-muted)]">
             {p.client || "—"} · {p.siteType}
@@ -641,7 +641,7 @@ export function ProjectPage({ id }: { id: string }) {
             onClick={() => nav.openTask(next.id)}
             className="mt-4 flex w-full items-center gap-2 rounded-xl bg-[var(--focus-bg2)] px-3 py-2.5 text-right text-sm hover:bg-[var(--focus-card)]"
           >
-            <span className="text-[color:var(--focus-mint)]">המשימה הבאה:</span>
+            <span className="text-[color:var(--focus-primary)]">המשימה הבאה:</span>
             <span className="truncate">{next.title}</span>
           </button>
         )}
@@ -714,7 +714,7 @@ export function ProjectPage({ id }: { id: string }) {
           </div>
           {pinned && (
             <Card className="mt-3 p-4">
-              <div className="mb-1 flex items-center gap-1.5 text-xs text-[color:var(--focus-mint)]">
+              <div className="mb-1 flex items-center gap-1.5 text-xs text-[color:var(--focus-primary)]">
                 <Pin className="size-3" />
                 הערה מוצמדת
               </div>
@@ -734,7 +734,7 @@ export function ProjectPage({ id }: { id: string }) {
               </Btn>
             </div>
             {open.length ? (
-              <div className="space-y-1.5">
+              <div className="-mx-2 divide-y divide-[color:var(--focus-border)]">
                 {open.slice(0, 6).map((t) => (
                   <TaskRow key={t.id} t={t} showProject={false} />
                 ))}
@@ -767,9 +767,13 @@ export function ProjectPage({ id }: { id: string }) {
                 />
               </Card>
             )}
-            {[...open, ...tasks.filter((t) => !isOpen(t))].map((t) => (
-              <TaskRow key={t.id} t={t} showProject={false} />
-            ))}
+            {tasks.length > 0 && (
+              <Card className="divide-y divide-[color:var(--focus-border)] px-2 py-1">
+                {[...open, ...tasks.filter((t) => !isOpen(t))].map((t) => (
+                  <TaskRow key={t.id} t={t} showProject={false} />
+                ))}
+              </Card>
+            )}
           </div>
         </TabsContent>
 
@@ -928,7 +932,7 @@ function LinkField({
             href={value}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--focus-border)] hover:text-[color:var(--focus-mint)]"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-[color:var(--focus-border)] hover:text-[color:var(--focus-primary)]"
           >
             <ExternalLink className="size-4" />
           </a>
@@ -1005,7 +1009,7 @@ function MoneyTab({ p }: { p: Project }) {
         </div>
         {bal > 0 && (
           <button
-            className="mt-2 text-xs text-[color:var(--focus-mint)] hover:underline"
+            className="mt-2 text-xs text-[color:var(--focus-primary)] hover:underline"
             onClick={() => setAmount(String(bal))}
           >
             מלא יתרה ({ils(bal)})
@@ -1325,7 +1329,10 @@ function NotesTab({ p }: { p: Project }) {
         </div>
       </Card>
       {sorted.map((n) => (
-        <Card key={n.id} className={cn("p-4", n.pinned && "border-[color:var(--focus-mint)]/40")}>
+        <Card
+          key={n.id}
+          className={cn("p-4", n.pinned && "border-[color:var(--focus-primary)]/40")}
+        >
           <textarea
             defaultValue={n.txt}
             onBlur={(e) =>

@@ -46,6 +46,7 @@ export const defaultSettings: DB["settings"] = {
   taskFilter: "open",
   sidebarCollapsed: false,
   pipCompact: false,
+  ownerName: "",
 };
 
 const emptyDB = (): DB => ({

@@ -79,7 +79,7 @@ export function useFloating(openApp: () => void) {
       win.document.documentElement.dir = "rtl";
       win.document.documentElement.lang = "he";
       win.document.title = "FOCUS";
-      win.document.body.className = "focus-pip-body";
+      win.document.body.className = "focus-pip-body focus-dark";
       const mount = win.document.createElement("div");
       mount.style.height = "100%";
       win.document.body.appendChild(mount);
@@ -167,7 +167,7 @@ export function InlineFloating({
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
-      className="focus-float-shell fixed z-50 w-[360px] max-w-[calc(100vw-16px)] cursor-grab touch-none rounded-[22px] active:cursor-grabbing"
+      className="focus-float-shell fixed z-50 w-[360px] max-w-[calc(100vw-16px)] cursor-grab touch-none rounded-[16px] active:cursor-grabbing"
       style={{ left: pos.x, bottom: pos.y }}
     >
       <FloatingContent onClose={onClose} onOpenApp={onOpenApp} />

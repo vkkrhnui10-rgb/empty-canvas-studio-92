@@ -124,7 +124,7 @@ function SuccessBurst({ show }: { show: boolean }) {
   if (!show) return null;
   return (
     <div className="pointer-events-none fixed inset-0 z-[60] flex items-center justify-center">
-      <div className="focus-burst flex size-28 items-center justify-center rounded-full bg-[var(--focus-mint)] text-[color:var(--focus-mint-foreground)] shadow-[0_0_80px_color-mix(in_oklab,var(--focus-mint)_60%,transparent)]">
+      <div className="focus-burst flex size-28 items-center justify-center rounded-full bg-[var(--focus-primary)] text-[color:var(--focus-primary-foreground)] shadow-[0_0_80px_color-mix(in_oklab,var(--focus-primary)_60%,transparent)]">
         <Check className="size-14" strokeWidth={3} />
       </div>
     </div>
@@ -152,7 +152,7 @@ export function FocusView() {
   const rem = t ? remainingSec(t) : minutes * 60;
   const frac = t ? rem / (t.plannedMin * 60) : 1;
   const running = !!t && !t.pausedAt;
-  const color = isBreak ? C.violet : rem < 0 ? C.warn : C.mint;
+  const color = isBreak ? C.violet : rem < 0 ? C.warn : C.primary;
 
   const complete = () => {
     if (!task) return;
@@ -181,7 +181,7 @@ export function FocusView() {
   if (!task && !isBreak) return <DaySummary />;
 
   return (
-    <div className="focus-stage relative min-h-full overflow-hidden">
+    <div className="focus-stage focus-dark relative min-h-full overflow-hidden">
       <SuccessBurst show={burst} />
       <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center px-4 pb-16 pt-5 sm:px-6">
         {/* top bar */}
@@ -211,7 +211,7 @@ export function FocusView() {
               <Progress value={(done / planned.length) * 100} />
             </div>
           )}
-          <div className="text-xs font-medium tracking-[0.2em] text-[color:var(--focus-mint)]">
+          <div className="text-xs font-medium tracking-[0.2em] text-[color:var(--focus-primary)]">
             {isBreak ? "הפסקה" : "עכשיו בפוקוס"}
           </div>
           <h1 className="mt-2 text-balance text-2xl font-bold leading-tight sm:text-4xl">
@@ -269,7 +269,7 @@ export function FocusView() {
                   className={cn(
                     "h-10 rounded-full px-5 text-sm font-medium transition-all",
                     minutes === m
-                      ? "bg-[var(--focus-mint)] text-[color:var(--focus-mint-foreground)]"
+                      ? "bg-[var(--focus-primary)] text-[color:var(--focus-primary-foreground)]"
                       : "border border-[color:var(--focus-border)] bg-[var(--focus-card)]/70 hover:bg-[var(--focus-card-hi)]",
                   )}
                 >
@@ -286,13 +286,13 @@ export function FocusView() {
                 inputMode="numeric"
                 className={cn(
                   "h-10 w-20 rounded-full text-center",
-                  ![25, 45, 60].includes(minutes) && "ring-2 ring-[var(--focus-mint)]",
+                  ![25, 45, 60].includes(minutes) && "ring-2 ring-[var(--focus-primary)]",
                 )}
               />
             </div>
             <button
               onClick={() => task && actions.startFocus(task.id, minutes)}
-              className="flex size-20 items-center justify-center rounded-full bg-gradient-to-br from-[var(--focus-mint)] to-[var(--focus-violet)] text-[color:var(--focus-mint-foreground)] shadow-[0_10px_40px_-8px_color-mix(in_oklab,var(--focus-mint)_70%,transparent)] transition-transform hover:scale-105 active:scale-95"
+              className="flex size-20 items-center justify-center rounded-full bg-gradient-to-br from-[var(--focus-primary)] to-[var(--focus-violet)] text-[color:var(--focus-primary-foreground)] shadow-[0_10px_40px_-8px_color-mix(in_oklab,var(--focus-primary)_70%,transparent)] transition-transform hover:scale-105 active:scale-95"
               aria-label="התחל"
             >
               <Play className="size-8 translate-x-[-2px]" fill="currentColor" />
@@ -311,7 +311,7 @@ export function FocusView() {
             />
             <button
               onClick={actions.togglePause}
-              className="flex size-20 items-center justify-center rounded-full text-[color:var(--focus-mint-foreground)] shadow-lg transition-transform hover:scale-105 active:scale-95"
+              className="flex size-20 items-center justify-center rounded-full text-[color:var(--focus-primary-foreground)] shadow-lg transition-transform hover:scale-105 active:scale-95"
               style={{ background: `linear-gradient(135deg, ${color}, var(--focus-violet))` }}
               aria-label={running ? "השהה" : "המשך"}
             >
@@ -470,7 +470,7 @@ function QuickLinks({
             href={x.href}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--focus-border)] bg-[var(--focus-bg2)] px-3 py-1.5 text-sm transition-colors hover:border-[color:var(--focus-mint)] hover:text-[color:var(--focus-mint)]"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[color:var(--focus-border)] bg-[var(--focus-bg2)] px-3 py-1.5 text-sm transition-colors hover:border-[color:var(--focus-primary)] hover:text-[color:var(--focus-primary)]"
           >
             <x.icon className="size-3.5" />
             {x.label}
@@ -545,9 +545,9 @@ export function DaySummary() {
   const empty = planned.length === 0;
 
   return (
-    <div className="focus-stage flex min-h-full items-center justify-center p-4">
+    <div className="focus-stage focus-dark flex min-h-full items-center justify-center p-4">
       <Card hi className="relative z-10 w-full max-w-lg p-7 text-center sm:p-9">
-        <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-[var(--focus-mint)]/15 text-[color:var(--focus-mint)]">
+        <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-2xl bg-[var(--focus-primary)]/15 text-[color:var(--focus-primary)]">
           {empty ? <Sparkles className="size-8" /> : <Trophy className="size-8" />}
         </div>
         <h1 className="text-2xl font-bold">
@@ -564,7 +564,7 @@ export function DaySummary() {
         ) : (
           <div className="mt-6 grid grid-cols-3 gap-3 text-center">
             <Stat n={done.length} l="הושלמו" c={C.ok} />
-            <Stat n={fmtMin(focusMin)} l="זמן פוקוס" c={C.mint} />
+            <Stat n={fmtMin(focusMin)} l="זמן פוקוס" c={C.primary} />
             <Stat n={waiting.length + blocked.length} l="בהמתנה / חסומות" c={C.pink} />
           </div>
         )}
@@ -639,14 +639,14 @@ export function FloatingContent({
   const rem = t ? remainingSec(t) : db.settings.defaultFocusMin * 60;
   const frac = t ? Math.max(0, Math.min(1, rem / (t.plannedMin * 60))) : 1;
   const running = !!t && !t.pausedAt;
-  const color = isBreak ? C.violet : rem < 0 ? C.warn : C.mint;
+  const color = isBreak ? C.violet : rem < 0 ? C.warn : C.primary;
   const mainLink = p?.adminUrl || p?.aiUrl || p?.url || task?.links[0];
 
   return (
     <div
       dir="rtl"
       className={cn(
-        "focus-float flex h-full flex-col text-[color:var(--focus-foreground)]",
+        "focus-float focus-dark flex h-full flex-col text-[color:var(--focus-foreground)]",
         inPip ? "p-3" : "p-3.5",
       )}
     >
@@ -698,7 +698,7 @@ export function FloatingContent({
           <button
             aria-label={running ? "השהה" : "התחל"}
             onClick={() => (t ? actions.togglePause() : actions.startFocus(task.id))}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full text-[color:var(--focus-mint-foreground)]"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full text-[color:var(--focus-primary-foreground)]"
             style={{ background: color }}
           >
             {running ? (
@@ -712,7 +712,7 @@ export function FloatingContent({
           <button
             aria-label="בוצע"
             onClick={() => actions.completeTask(task.id)}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--focus-mint)] text-[color:var(--focus-mint)] hover:bg-[var(--focus-mint)]/15"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--focus-primary)] text-[color:var(--focus-primary)] hover:bg-[var(--focus-primary)]/15"
           >
             <Check className="size-4" strokeWidth={3} />
           </button>
@@ -750,7 +750,7 @@ export function FloatingContent({
                     className={cn(
                       "flex size-3.5 shrink-0 items-center justify-center rounded border",
                       c.done
-                        ? "border-[color:var(--focus-mint)] bg-[var(--focus-mint)] text-[color:var(--focus-mint-foreground)]"
+                        ? "border-[color:var(--focus-primary)] bg-[var(--focus-primary)] text-[color:var(--focus-primary-foreground)]"
                         : "border-white/25",
                     )}
                   >
@@ -776,7 +776,7 @@ export function FloatingContent({
                 href={mainLink}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-lg border border-white/12 px-2 py-1 text-[11px] text-[color:var(--focus-mint)] hover:bg-white/5"
+                className="rounded-lg border border-white/12 px-2 py-1 text-[11px] text-[color:var(--focus-primary)] hover:bg-white/5"
               >
                 קישור עבודה ↗
               </a>

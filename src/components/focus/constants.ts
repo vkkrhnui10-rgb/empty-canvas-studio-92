@@ -94,10 +94,12 @@ export const C = {
   line: "var(--focus-border)",
   text: "var(--focus-foreground)",
   sub: "var(--focus-muted)",
-  mint: "var(--focus-mint)",
-  mintDark: "var(--focus-mint-foreground)",
+  primary: "var(--focus-primary)",
+  primaryFg: "var(--focus-primary-foreground)",
   violet: "var(--focus-violet)",
   pink: "var(--focus-pink)",
+  teal: "var(--focus-teal)",
+  navy: "var(--focus-navy)",
   ok: "var(--focus-success)",
   warn: "var(--focus-warning)",
   bad: "var(--focus-destructive)",
@@ -113,14 +115,14 @@ export const STATUS_COLOR: Record<TaskStatus, string> = {
   inbox: C.sub,
   todo: C.sub,
   today: C.violet,
-  doing: C.mint,
+  doing: C.primary,
   waiting: C.pink,
   blocked: C.bad,
   deferred: C.warn,
   done: C.ok,
   cancelled: C.sub,
 };
-const ACCENTS = [C.mint, C.violet, C.pink, C.warn];
+const ACCENTS = [C.primary, C.teal, C.pink, C.warn];
 export const accentFor = (id: string) =>
   ACCENTS[[...id].reduce((s, c) => s + c.charCodeAt(0), 0) % ACCENTS.length];
 

@@ -94,7 +94,15 @@ export function SettingsView() {
     <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
       <PageHeader title="הגדרות" />
       <Card className="space-y-4 p-5">
-        <h2 className="font-semibold">עבודה ופוקוס</h2>
+        <h2 className="text-[17px] font-bold">עבודה ופוקוס</h2>
+        <Field label="השם שלך (לברכה בראש המסך)">
+          <Input
+            value={s.ownerName}
+            onChange={(e) => actions.settings({ ownerName: e.target.value })}
+            placeholder="לדוגמה: הלל"
+            className="max-w-xs"
+          />
+        </Field>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Field label="שעות עבודה ביום">
             <Input
@@ -156,7 +164,7 @@ export function SettingsView() {
       </Card>
 
       <Card className="space-y-3 p-5">
-        <h2 className="flex items-center gap-2 font-semibold">
+        <h2 className="flex items-center gap-2 text-[17px] font-bold">
           <PictureInPicture2 className="size-4" /> פאנל צף
         </h2>
         <p className="text-sm leading-relaxed text-[color:var(--focus-muted)]">
@@ -173,7 +181,7 @@ export function SettingsView() {
       </Card>
 
       <Card className="space-y-3 p-5">
-        <h2 className="font-semibold">גיבוי ונתונים</h2>
+        <h2 className="text-[17px] font-bold">גיבוי ונתונים</h2>
         <p className="text-sm text-[color:var(--focus-muted)]">
           הנתונים נשמרים בדפדפן הזה במחשב הזה. גבה מדי פעם — ייצוא JSON הוא גיבוי מלא שאפשר לייבא
           בחזרה.{lastBackup && ` גיבוי אחרון: ${lastBackup}.`}
@@ -257,7 +265,7 @@ function Toggle({
         id={id}
         checked={checked}
         onCheckedChange={onChange}
-        className="data-[state=checked]:bg-[var(--focus-mint)]"
+        className="data-[state=checked]:bg-[var(--focus-primary)]"
       />
     </div>
   );

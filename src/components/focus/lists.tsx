@@ -141,7 +141,7 @@ export function TasksView({ inbox }: { inbox?: boolean }) {
           />
         </Card>
       ) : (
-        <div className="space-y-1.5">
+        <Card className="divide-y divide-[color:var(--focus-border)] px-2 py-1">
           {list.map((t) => (
             <div key={t.id} className="flex items-center gap-2">
               <div className="min-w-0 flex-1">
@@ -150,14 +150,14 @@ export function TasksView({ inbox }: { inbox?: boolean }) {
               {inbox && <InboxSort t={t} />}
             </div>
           ))}
-        </div>
+        </Card>
       )}
 
       {/* bulk bar */}
       {ids.length > 0 && (
         <div className="fixed inset-x-3 bottom-20 z-40 mx-auto flex max-w-2xl flex-wrap items-center gap-2 rounded-2xl border border-[color:var(--focus-border)] bg-[var(--focus-card-hi)]/95 p-2.5 shadow-2xl backdrop-blur md:bottom-6">
           <span className="px-2 text-sm font-medium">
-            <CheckSquare className="ml-1 inline size-4 text-[color:var(--focus-mint)]" />
+            <CheckSquare className="ml-1 inline size-4 text-[color:var(--focus-primary)]" />
             {ids.length} נבחרו
           </span>
           <Btn
@@ -331,7 +331,7 @@ export function WeeklyView() {
         subtitle="7 הימים האחרונים — מה עבד, מה תקוע, איפה הלך הזמן."
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi l="זמן פוקוס" v={fmtMin(totalFocus)} c={C.mint} />
+        <Kpi l="זמן פוקוס" v={fmtMin(totalFocus)} c={C.primary} />
         <Kpi l="משימות שהושלמו" v={String(totalDone)} c={C.ok} />
         <Kpi
           l="דיוק הערכות"
@@ -380,7 +380,7 @@ export function WeeklyView() {
                   style={{
                     height: `${Math.max(3, (focusByDay[i] / maxMin) * 100)}%`,
                     background:
-                      i === 6 ? C.mint : `color-mix(in oklab, ${C.violet} 65%, transparent)`,
+                      i === 6 ? C.primary : `color-mix(in oklab, ${C.violet} 65%, transparent)`,
                   }}
                 />
                 <span className="text-xs text-[color:var(--focus-muted)]">

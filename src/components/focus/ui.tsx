@@ -43,10 +43,10 @@ export function Card({
     <ShadCard
       onClick={onClick}
       className={cn(
-        "focus-card min-w-0 rounded-[22px] border-[color:var(--focus-border)] text-[color:var(--focus-foreground)] shadow-none gap-0 py-0",
+        "focus-card min-w-0 gap-0 rounded-[14px] border-[color:var(--focus-border)] py-0 text-[color:var(--focus-foreground)]",
         hi && "focus-card-hi",
         onClick &&
-          "cursor-pointer transition-[transform,border-color] duration-200 hover:-translate-y-0.5 hover:border-[color:color-mix(in_oklab,var(--focus-mint)_35%,var(--focus-border))]",
+          "cursor-pointer transition-[box-shadow,border-color] duration-200 hover:border-[color:color-mix(in_oklab,var(--focus-primary)_45%,var(--focus-border))]",
         className,
       )}
       {...rest}
@@ -67,25 +67,25 @@ export const Btn = React.forwardRef<
 >(function Btn({ variant = "soft", size = "md", icon: Icon, className, children, ...rest }, ref) {
   const v: Record<BtnVariant, string> = {
     primary:
-      "bg-[var(--focus-mint)] text-[color:var(--focus-mint-foreground)] hover:bg-[color:color-mix(in_oklab,var(--focus-mint)_88%,white)] shadow-[0_6px_24px_-8px_color-mix(in_oklab,var(--focus-mint)_60%,transparent)]",
-    soft: "bg-[var(--focus-card-hi)] text-[color:var(--focus-foreground)] border border-[color:var(--focus-border)] hover:bg-[color:color-mix(in_oklab,var(--focus-card-hi)_80%,white_6%)]",
+      "bg-[var(--focus-primary)] text-[color:var(--focus-primary-foreground)] shadow-sm hover:bg-[color:color-mix(in_oklab,var(--focus-primary)_88%,black)]",
+    soft: "bg-[var(--focus-soft)] text-[color:var(--focus-primary)] hover:bg-[color:color-mix(in_oklab,var(--focus-soft)_85%,var(--focus-primary))]",
     outline:
-      "bg-transparent text-[color:var(--focus-foreground)] border border-[color:var(--focus-border)] hover:bg-[var(--focus-card-hi)]",
+      "bg-[var(--focus-card)] text-[color:var(--focus-foreground)] border border-[color:color-mix(in_oklab,var(--focus-foreground)_28%,transparent)] hover:border-[color:var(--focus-foreground)] hover:bg-[var(--focus-card)]",
     ghost:
-      "bg-transparent text-[color:var(--focus-muted)] hover:text-[color:var(--focus-foreground)] hover:bg-[var(--focus-card-hi)]",
+      "bg-transparent text-[color:var(--focus-muted)] hover:text-[color:var(--focus-foreground)] hover:bg-[var(--focus-bg2)]",
     danger:
-      "bg-[color:color-mix(in_oklab,var(--focus-destructive)_14%,transparent)] text-[color:var(--focus-destructive)] border border-[color:color-mix(in_oklab,var(--focus-destructive)_30%,transparent)] hover:bg-[color:color-mix(in_oklab,var(--focus-destructive)_22%,transparent)]",
+      "bg-[color:color-mix(in_oklab,var(--focus-destructive)_10%,transparent)] text-[color:var(--focus-destructive)] hover:bg-[color:color-mix(in_oklab,var(--focus-destructive)_18%,transparent)]",
   };
   const s = {
-    sm: "h-8 px-3 text-sm gap-1.5 rounded-xl",
-    md: "h-10 px-4 gap-2 rounded-xl",
-    lg: "h-12 px-6 text-base gap-2 rounded-2xl",
+    sm: "h-8 px-3 text-[13px] gap-1.5 rounded-md",
+    md: "h-10 px-4 text-[15px] gap-2 rounded-lg",
+    lg: "h-12 px-6 text-base gap-2 rounded-lg",
   }[size];
   return (
     <Button
       ref={ref}
       className={cn(
-        "font-medium transition-all active:scale-[.97] focus-visible:ring-2 focus-visible:ring-[var(--focus-mint)]",
+        "font-semibold transition-all active:scale-[.98] focus-visible:ring-2 focus-visible:ring-[var(--focus-primary)]/40",
         v[variant],
         s,
         className,
@@ -115,8 +115,8 @@ export function IconBtn({
         <button
           aria-label={label}
           className={cn(
-            "inline-flex size-9 shrink-0 items-center justify-center rounded-xl text-[color:var(--focus-muted)] transition-colors hover:bg-[var(--focus-card-hi)] hover:text-[color:var(--focus-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-mint)]",
-            active && "text-[color:var(--focus-mint)]",
+            "inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-[color:var(--focus-muted)] transition-colors hover:bg-[var(--focus-bg2)] hover:text-[color:var(--focus-foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-primary)]/40",
+            active && "text-[color:var(--focus-primary)]",
             className,
           )}
           {...rest}
@@ -142,13 +142,12 @@ export function Badge({
     <ShadBadge
       variant="outline"
       className={cn(
-        "rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap",
+        "rounded-md border-0 px-2 py-0.5 text-xs font-semibold whitespace-nowrap",
         className,
       )}
       style={{
         color,
-        borderColor: `color-mix(in oklab, ${color} 35%, transparent)`,
-        background: `color-mix(in oklab, ${color} 10%, transparent)`,
+        background: `color-mix(in oklab, ${color} 12%, transparent)`,
       }}
     >
       {children}
@@ -157,7 +156,7 @@ export function Badge({
 }
 
 const fieldCls =
-  "rounded-xl bg-[var(--focus-bg2)] border-[color:var(--focus-border)] text-[color:var(--focus-foreground)] placeholder:text-[color:var(--focus-muted)]/70 focus-visible:ring-2 focus-visible:ring-[var(--focus-mint)]/60 focus-visible:border-transparent";
+  "rounded-lg bg-[var(--focus-card)] border-[color:var(--focus-border)] text-[15px] text-[color:var(--focus-foreground)] shadow-none placeholder:text-[color:var(--focus-muted)]/70 focus-visible:ring-[3px] focus-visible:ring-[var(--focus-primary)]/20 focus-visible:border-[color:var(--focus-primary)]";
 export const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
   function Input({ className, ...p }, ref) {
     return <ShadInput ref={ref} className={cn(fieldCls, "h-10", className)} {...p} />;
@@ -223,7 +222,7 @@ export function Check({
         id={id}
         checked={checked}
         onCheckedChange={(v) => onChange(!!v)}
-        className="size-[18px] rounded-md border-[color:var(--focus-border)] data-[state=checked]:bg-[var(--focus-mint)] data-[state=checked]:border-[color:var(--focus-mint)] data-[state=checked]:text-[color:var(--focus-mint-foreground)]"
+        className="size-[18px] rounded-[5px] border-[color:color-mix(in_oklab,var(--focus-foreground)_30%,transparent)] data-[state=checked]:bg-[var(--focus-primary)] data-[state=checked]:border-[color:var(--focus-primary)] data-[state=checked]:text-[color:var(--focus-primary-foreground)]"
       />
       {label && (
         <label htmlFor={id} className="cursor-pointer select-none text-sm">
@@ -267,7 +266,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-4 py-10 text-center">
-      <div className="flex size-14 items-center justify-center rounded-2xl bg-[var(--focus-bg2)] text-[color:var(--focus-muted)] ring-1 ring-[var(--focus-border)]">
+      <div className="flex size-14 items-center justify-center rounded-2xl bg-[var(--focus-soft)] text-[color:var(--focus-primary)]">
         <Icon className="size-6" />
       </div>
       <div>
@@ -281,7 +280,7 @@ export function EmptyState({
 
 export function Progress({
   value,
-  color = "var(--focus-mint)",
+  color = "var(--focus-primary)",
   className,
 }: {
   value: number;
@@ -289,9 +288,7 @@ export function Progress({
   className?: string;
 }) {
   return (
-    <div
-      className={cn("h-1.5 overflow-hidden rounded-full bg-[var(--focus-border)]/60", className)}
-    >
+    <div className={cn("h-1.5 overflow-hidden rounded-full bg-[var(--focus-bg2)]", className)}>
       <div
         className="h-full rounded-full transition-[width] duration-500"
         style={{ width: `${Math.max(0, Math.min(100, value))}%`, background: color }}
@@ -310,16 +307,16 @@ export function Segmented<T extends string>({
   options: { value: T; label: string; icon?: LucideIcon }[];
 }) {
   return (
-    <div className="inline-flex rounded-xl border border-[color:var(--focus-border)] bg-[var(--focus-bg2)] p-0.5">
+    <div className="inline-flex flex-wrap gap-2">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            "inline-flex h-8 items-center gap-1.5 rounded-[10px] px-3 text-sm transition-colors",
+            "inline-flex h-9 items-center gap-1.5 rounded-md border px-4 text-[14px] transition-colors",
             value === o.value
-              ? "bg-[var(--focus-card-hi)] text-[color:var(--focus-foreground)] shadow-sm"
-              : "text-[color:var(--focus-muted)] hover:text-[color:var(--focus-foreground)]",
+              ? "border-transparent bg-[var(--focus-soft)] font-semibold text-[color:var(--focus-primary)]"
+              : "border-[color:var(--focus-border)] bg-[var(--focus-card)] text-[color:var(--focus-muted)] hover:text-[color:var(--focus-foreground)]",
           )}
         >
           {o.icon && <o.icon className="size-3.5" />}
@@ -347,9 +344,9 @@ export function Modal({
 }) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent dir="rtl" className={cn("focus-dialog rounded-[24px] sm:max-w-md", className)}>
+      <DialogContent dir="rtl" className={cn("focus-dialog rounded-2xl sm:max-w-md", className)}>
         <DialogHeader className="text-right sm:text-right">
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className="text-xl font-bold">{title}</DialogTitle>
           <DialogDescription
             className={description ? "text-[color:var(--focus-muted)]" : "sr-only"}
           >
@@ -380,8 +377,8 @@ export function Drawer({
         dir="rtl"
         className="focus-dialog w-full overflow-y-auto border-r p-0 sm:max-w-xl"
       >
-        <SheetHeader className="sticky top-0 z-10 border-b border-[color:var(--focus-border)] bg-[var(--focus-bg2)]/95 px-6 py-4 text-right backdrop-blur">
-          <SheetTitle className="text-lg">{title}</SheetTitle>
+        <SheetHeader className="sticky top-0 z-10 border-b border-[color:var(--focus-border)] bg-[var(--focus-card)] px-6 py-4 text-right">
+          <SheetTitle className="text-xl font-bold">{title}</SheetTitle>
           <SheetDescription className="sr-only">{title}</SheetDescription>
         </SheetHeader>
         <div className="px-6 py-5">{children}</div>
@@ -409,7 +406,7 @@ export function SectionTitle({
 }) {
   return (
     <div className="mb-3 flex items-center justify-between gap-2">
-      <h2 className="flex items-center gap-2 text-[15px] font-semibold">
+      <h2 className="flex items-center gap-2 text-[17px] font-bold">
         {Icon && <Icon className="size-4 text-[color:var(--focus-muted)]" />}
         {children}
       </h2>
@@ -428,12 +425,66 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-[color:var(--focus-border)]">
+      <div className="-mb-px border-b-[3px] border-[color:var(--focus-navy)] pb-3">
+        <h1 className="text-[26px] leading-tight font-bold">{title}</h1>
         {subtitle && <p className="mt-0.5 text-sm text-[color:var(--focus-muted)]">{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 pb-3">{actions}</div>}
     </div>
+  );
+}
+
+/** Grow-style navy → indigo headline number card */
+export function GradientStat({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  onClick,
+  className,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  icon?: LucideIcon;
+  onClick?: () => void;
+  className?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "focus-gradient flex min-w-0 flex-col justify-between rounded-[14px] p-5 text-right transition-transform duration-200",
+        onClick && "hover:-translate-y-0.5",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-2 text-[17px] font-bold">
+        {Icon && <Icon className="size-[18px] opacity-80" />}
+        {label}
+      </div>
+      <div className="mt-4 truncate text-[34px] leading-none font-bold tabular-nums">{value}</div>
+      {sub && <div className="focus-on-gradient-muted mt-3 text-sm font-medium">{sub}</div>}
+    </button>
+  );
+}
+
+/** Grow-style link action: "לכל ההתנועות ›" */
+export function LinkAction({
+  children,
+  onClick,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="inline-flex items-center gap-1 text-sm font-semibold text-[color:var(--focus-primary)] hover:underline"
+    >
+      {children}
+      <span aria-hidden>‹</span>
+    </button>
   );
 }

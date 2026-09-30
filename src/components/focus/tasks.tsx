@@ -89,9 +89,8 @@ export function TaskRow({
       draggable={draggable}
       onDragStart={onDragStart}
       className={cn(
-        "group relative flex items-center gap-2.5 rounded-2xl border border-transparent bg-[var(--focus-bg2)] px-3 py-2.5 transition-colors hover:border-[color:var(--focus-border)]",
-        selected &&
-          "border-[color:var(--focus-mint)]/50 bg-[color:color-mix(in_oklab,var(--focus-mint)_6%,var(--focus-bg2))]",
+        "group relative flex items-center gap-3 rounded-lg px-3 py-3 transition-colors hover:bg-[var(--focus-bg2)]",
+        selected && "bg-[var(--focus-soft)] hover:bg-[var(--focus-soft)]",
         done && "opacity-60",
       )}
     >
@@ -115,15 +114,15 @@ export function TaskRow({
           "flex size-[22px] shrink-0 items-center justify-center rounded-full border-2 transition-all",
           done
             ? "border-[color:var(--focus-success)] bg-[var(--focus-success)]"
-            : "border-[color:var(--focus-border)] hover:border-[color:var(--focus-mint)] hover:bg-[var(--focus-mint)]/15",
+            : "border-[color:var(--focus-border)] hover:border-[color:var(--focus-primary)] hover:bg-[var(--focus-primary)]/15",
         )}
       >
         <Check
           className={cn(
             "size-3",
             done
-              ? "text-[color:var(--focus-mint-foreground)]"
-              : "text-[color:var(--focus-mint)] opacity-0 group-hover:opacity-70",
+              ? "text-[color:var(--focus-primary-foreground)]"
+              : "text-[color:var(--focus-primary)] opacity-0 group-hover:opacity-70",
           )}
           strokeWidth={3}
         />
@@ -381,7 +380,7 @@ export function QuickAddDialog({
             <Badge color={PRIO_COLOR[parsed.priority]}>{PRIORITIES[parsed.priority]}</Badge>
           )}
           {parsed.estMin && <Badge>{fmtMin(parsed.estMin)}</Badge>}
-          {(parsed.today || preset?.today) && <Badge color={C.mint}>להיום</Badge>}
+          {(parsed.today || preset?.today) && <Badge color={C.primary}>להיום</Badge>}
           {parsed.due && <Badge color={C.warn}>יעד: {fmtDate(parsed.due)}</Badge>}
           {!v && (
             <span className="text-xs text-[color:var(--focus-muted)]">
@@ -564,7 +563,7 @@ export function TaskDrawer({ id, onClose }: { id: string | null; onClose: () => 
                   target="_blank"
                   rel="noreferrer"
                   dir="ltr"
-                  className="flex-1 truncate text-left text-[color:var(--focus-mint)] hover:underline"
+                  className="flex-1 truncate text-left text-[color:var(--focus-primary)] hover:underline"
                 >
                   {l}
                 </a>
@@ -641,7 +640,7 @@ export function TaskDrawer({ id, onClose }: { id: string | null; onClose: () => 
         </div>
         {t.projectId && (
           <button
-            className="inline-flex items-center gap-1 text-sm text-[color:var(--focus-mint)] hover:underline"
+            className="inline-flex items-center gap-1 text-sm text-[color:var(--focus-primary)] hover:underline"
             onClick={() => {
               onClose();
               nav.go("project", t.projectId);

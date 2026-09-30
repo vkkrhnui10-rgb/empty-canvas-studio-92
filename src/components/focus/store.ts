@@ -1104,7 +1104,7 @@ export const actions = {
           if (!c.phone && r.phone) c.phone = r.phone;
           if (!c.email && r.email) c.email = r.email;
         }
-        if (c.runs.some((x) => x.txCode === r.key)) {
+        if (c.runs.some((x) => x.txCode === r.key || (x.date === r.date && x.sum === r.sum))) {
           dup++;
           continue;
         }

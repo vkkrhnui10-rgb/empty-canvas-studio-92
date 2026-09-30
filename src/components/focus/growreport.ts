@@ -31,42 +31,60 @@ function toDate(v: string): string {
   return "";
 }
 
-/** returns the standing-order charge rows of a Grow report; `skipped` counts everything else */
+const SO_KINDS = new Set(["הוראת קבע", 'הו"ק', "הוק"].map(norm));
+/** statuses (new export) that are not a real successful charge: refunds / disputes */
+const okStatus = (s: string) => !s || norm(s) === norm("חוייב") || norm(s) === norm("חויב");
+
+/** returns the standing-order charge rows of a Grow report (both export formats); `skipped` counts everything else */
 export function parseGrowReport(rows: string[][]): { rows: ReportRow[]; skipped: number } {
   const hi = rows.findIndex((r) => r.some((c) => norm(c ?? "") === norm("תאריך חיוב")));
   if (hi < 0) throw new Error("לא נמצאו כותרות של דוח Grow");
   const head = rows[hi].map((c) => norm(c ?? ""));
-  const col = (name: string) => head.indexOf(norm(name));
+  const col = (...names: string[]) => {
+    for (const n of names) {
+      const i = head.indexOf(norm(n));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
   const c = {
     date: col("תאריך חיוב"),
     first: col("שם"),
     last: col("משפחה"),
-    email: col("אימייל"),
+    email: col("אימייל", "כתובת מייל"),
     phone: col("טלפון"),
     kind: col("סוג תשלום"),
-    sum: col("סכום"),
-    net: col("להעברה"),
+    status: col("סטטוס"),
+    sum: col("סכום", "שולם"),
+    net: col("להעברה", 'סה"כ העברה לבנק'),
     ref: col("אסמכתא"),
-    desc: col("תיאור התשלום"),
+    desc: col("תיאור התשלום", "תיאור עסקה"),
   };
-  if (c.date < 0 || c.sum < 0) throw new Error("חסרות עמודות בדוח");
+  const missing = [
+    c.date < 0 && "תאריך חיוב",
+    c.sum < 0 && "סכום / שולם",
+    c.kind < 0 && "סוג תשלום",
+    c.phone < 0 && c.email < 0 && "טלפון / מייל",
+  ].filter(Boolean);
+  if (missing.length) throw new Error(`חסרות עמודות בדוח: ${missing.join(", ")}`);
   const out: ReportRow[] = [];
   let skipped = 0;
   for (const r of rows.slice(hi + 1)) {
     const get = (i: number) => (i >= 0 ? String(r[i] ?? "").trim() : "");
     const date = toDate(get(c.date));
     const sum = Number(get(c.sum)) || 0;
-    const isSO = norm(get(c.kind)) === norm("הוראת קבע");
-    if (!date || !isSO || sum <= 0) {
+    const isSO = SO_KINDS.has(norm(get(c.kind)));
+    if (!date || !isSO || sum <= 0 || !okStatus(get(c.status))) {
       if (r.some((x) => x)) skipped++;
       continue;
     }
+    const net =
+      c.net >= 0 && get(c.net) !== "" ? Math.round(Number(get(c.net)) * 100) / 100 || sum : sum;
     out.push({
       key: get(c.ref) ? `rep-${get(c.ref)}` : `rep-${date}-${get(c.phone)}-${sum}`,
       date,
       sum,
-      net:
-        c.net >= 0 && get(c.net) !== "" ? Math.round(Number(get(c.net)) * 100) / 100 || sum : sum,
+      net,
       name: `${get(c.first)} ${get(c.last)}`.trim(),
       phone: get(c.phone),
       email: get(c.email).toLowerCase(),

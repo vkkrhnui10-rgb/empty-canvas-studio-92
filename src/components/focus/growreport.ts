@@ -94,6 +94,62 @@ export function parseGrowReport(rows: string[][]): { rows: ReportRow[]; skipped:
   return { rows: out, skipped };
 }
 
+export interface OrderRow {
+  name: string;
+  start: string;
+  count: number;
+  nextSum: number;
+  nextDate: string;
+  state: "active" | "cancelled" | "attention";
+  lastPay: string;
+}
+
+/** Grow's "standing orders" list (creation date, client, charges so far, next charge, status) */
+export const isOrdersTable = (rows: string[][]) =>
+  rows.some((r) => r.some((c) => norm(c ?? "") === norm("שם הלקוח"))) &&
+  rows.some((r) => r.some((c) => norm(c ?? "").includes(norm("תאריך הקמה"))));
+
+export function parseGrowOrders(rows: string[][]): OrderRow[] {
+  const hi = rows.findIndex((r) => r.some((c) => norm(c ?? "") === norm("שם הלקוח")));
+  if (hi < 0) throw new Error("לא נמצאה טבלת הוראות קבע");
+  const head = rows[hi].map((c) => norm(c ?? ""));
+  const col = (...names: string[]) => {
+    for (const n of names) {
+      const i = head.findIndex((h) => h.includes(norm(n)));
+      if (i >= 0) return i;
+    }
+    return -1;
+  };
+  const c = {
+    start: col("תאריך הקמה"),
+    name: col("שם הלקוח"),
+    count: col("מספר החיובים"),
+    sum: col("סכום החיוב הבא"),
+    next: col("תאריך חיוב הבא"),
+    state: col('סטטוס הו"ק', "סטטוס"),
+    last: col("תשלום אחרון"),
+  };
+  const out: OrderRow[] = [];
+  for (const r of rows.slice(hi + 1)) {
+    const get = (i: number) => (i >= 0 ? String(r[i] ?? "").trim() : "");
+    const name = get(c.name);
+    if (!name) continue;
+    const st = get(c.state);
+    out.push({
+      name,
+      start: toDate(get(c.start)),
+      count: parseInt(get(c.count), 10) || 0,
+      nextSum: Number(get(c.sum).replace(/[^\d.]/g, "")) || 0,
+      nextDate: toDate(get(c.next)),
+      state: st.includes("בוטל") ? "cancelled" : st.includes("טיפול") ? "attention" : "active",
+      lastPay: get(c.last),
+    });
+  }
+  return out;
+}
+
+export const nameKey = (s: string) => norm(s);
+
 export const samePerson = (
   p: { phone: string; email: string },
   r: { phone: string; email: string },

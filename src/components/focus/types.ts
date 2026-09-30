@@ -99,6 +99,13 @@ export interface SOContact {
   created: number;
   /** set by hand when Grow's state differs from what the runs suggest */
   status?: "auto" | "active" | "cancelled" | "attention";
+  /** from Grow's standing-orders list */
+  growStart?: string; // order creation date
+  growCount?: number; // monthly charges so far
+  nextDate?: string;
+  nextSum?: number;
+  growState?: "active" | "cancelled" | "attention";
+  lastPay?: string; // last payment status / failure reason
 }
 
 export interface SiteCheck {

@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
-import type { ReportRow } from "./growreport";
-import { samePerson } from "./growreport";
+import type { OrderRow, ReportRow } from "./growreport";
+import { nameKey, samePerson } from "./growreport";
 import type {
   Alert,
   Cpanel,
@@ -571,9 +571,13 @@ function autoLink(d: DB): number {
 
 /** a project's standing-order start / last charge follow the runs of its linked contacts */
 function syncProjectFromContacts(d: DB, p: Project) {
-  const runs = d.soContacts
-    .filter((c) => c.projectId === p.id)
-    .flatMap((c) => c.runs.filter((r) => r.ok));
+  const mine = d.soContacts.filter((c) => c.projectId === p.id);
+  const runs = mine.flatMap((c) => c.runs.filter((r) => r.ok));
+  const starts = mine.map((c) => c.growStart).filter(Boolean) as string[];
+  if (starts.length) {
+    const first = [...starts].sort()[0];
+    if (!p.soStart || first < p.soStart) p.soStart = first;
+  }
   if (!runs.length) return;
   const dates = runs.map((r) => r.date).sort();
   if (!p.soStart || dates[0] < p.soStart) p.soStart = dates[0];
@@ -613,7 +617,12 @@ export function projectSO(db: DB, p: Project): SOStats {
     bad: runs.length - good.length,
     gross: Math.round(good.reduce((s, r) => s + r.sum, 0) * 100) / 100,
     net: Math.round(good.reduce((s, r) => s + (r.net ?? r.sum), 0) * 100) / 100,
-    first: p.soStart || dates[0] || "",
+    first:
+      p.soStart ||
+      [...contacts.map((c) => c.growStart || "").filter(Boolean), dates[0] || ""]
+        .filter(Boolean)
+        .sort()[0] ||
+      "",
     last: dates[dates.length - 1] || "",
     contacts,
   };
@@ -1130,7 +1139,11 @@ export const actions = {
     let linked = 0;
     update((d) => {
       for (const r of rows) {
-        let c = d.soContacts.find((x) => samePerson(x, r));
+        let c =
+          d.soContacts.find((x) => samePerson(x, r)) ??
+          d.soContacts.find(
+            (x) => !x.phone && !x.email && !!r.name && nameKey(x.name) === nameKey(r.name),
+          );
         if (!c) {
           c = {
             id: uid(),
@@ -1169,6 +1182,49 @@ export const actions = {
       linked += autoLink(d);
     });
     return { added, dup, created, linked };
+  },
+  /** apply Grow's standing-orders list (start date, charges so far, next charge, status) to contacts by name */
+  importGrowOrders(rows: OrderRow[]) {
+    let updated = 0;
+    let created = 0;
+    update((d) => {
+      const groups = new Map<string, OrderRow[]>();
+      for (const r of rows)
+        groups.set(nameKey(r.name), [...(groups.get(nameKey(r.name)) ?? []), r]);
+      for (const [key, list] of groups) {
+        let c = d.soContacts.find((x) => nameKey(x.name) === key);
+        if (!c) {
+          c = {
+            id: uid(),
+            name: list[0].name,
+            phone: "",
+            email: "",
+            note: "",
+            projectId: "",
+            runs: [],
+            created: Date.now(),
+          };
+          d.soContacts.push(c);
+          created++;
+        } else updated++;
+        // a client can hold several orders: earliest start, all charges, live if any order is live
+        const starts = list
+          .map((x) => x.start)
+          .filter(Boolean)
+          .sort();
+        c.growStart = starts[0];
+        c.growCount = list.reduce((s, x) => s + x.count, 0);
+        const live = list.find((x) => x.state === "active");
+        const bad = list.find((x) => x.state === "attention");
+        c.growState = live ? "active" : bad ? "attention" : "cancelled";
+        const pick = live ?? bad ?? list[0];
+        c.nextDate = live?.nextDate || "";
+        c.nextSum = live?.nextSum || 0;
+        c.lastPay = (bad ?? pick).lastPay;
+      }
+      d.projects.forEach((p) => syncProjectFromContacts(d, p));
+    });
+    return { updated, created };
   },
   /** link contacts to projects by matching phone / email; returns how many were linked */
   autoLinkContacts() {

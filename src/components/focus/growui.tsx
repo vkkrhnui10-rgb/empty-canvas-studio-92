@@ -19,7 +19,7 @@ import { WEBHOOK_BASE, signOut, syncNow, useCloud } from "./cloud";
 import { actions, allSORuns, projectSO, replaceFromRemote, useDB } from "./store";
 import type { GrowEntry, SOContact } from "./types";
 import { Badge, Btn, Card, EmptyState, ProjectAvatar, Segmented, Select } from "./ui";
-import { parseGrowReport } from "./growreport";
+import { isOrdersTable, parseGrowOrders, parseGrowReport } from "./growreport";
 import { readSheet } from "./xlsx";
 import { useNav } from "./nav";
 import { daysSince, fmtDate, ils, timeAgo } from "./utils";
@@ -327,6 +327,7 @@ export const SO_STATE_LABEL: Record<SoState, string> = {
 export function contactState(c: SOContact): SoState {
   if (c.status === "active" || c.status === "cancelled" || c.status === "attention")
     return c.status;
+  if (c.growState) return c.growState;
   const last = c.runs
     .filter((r) => r.ok)
     .map((r) => r.date)
@@ -335,6 +336,7 @@ export function contactState(c: SOContact): SoState {
   return last && daysSince(last) <= STALE_DAYS ? "active" : "inactive";
 }
 const nextCharge = (c: SOContact) => {
+  if (c.nextDate) return { date: c.nextDate, sum: c.nextSum ?? 0, net: (c.nextSum ?? 0) * 0.96 };
   const ok = c.runs.filter((r) => r.ok).sort((a, b) => b.date.localeCompare(a.date))[0];
   if (!ok) return null;
   const d = new Date(`${ok.date}T12:00:00Z`);
@@ -353,7 +355,16 @@ export function SoContactsTab() {
   const onFile = async (f: File) => {
     setBusy(true);
     try {
-      const { rows, skipped } = parseGrowReport(await readSheet(f));
+      const sheet = await readSheet(f);
+      if (isOrdersTable(sheet)) {
+        const r = actions.importGrowOrders(parseGrowOrders(sheet));
+        toast.success(
+          `עודכנו ${r.updated} אנשי קשר עם תאריך הקמה, חיוב הבא וסטטוס` +
+            (r.created ? ` · ${r.created} חדשים (בלי ריצות עדיין)` : ""),
+        );
+        return;
+      }
+      const { rows, skipped } = parseGrowReport(sheet);
       if (!rows.length) {
         toast.error("לא נמצאו חיובי הוראת קבע בדוח");
         return;
@@ -536,10 +547,15 @@ function ContactRow({ c, s }: { c: SOContact; s: ReturnType<typeof cStats> }) {
           {c.email}
         </div>
         <div className="mt-0.5 text-xs text-[color:var(--focus-muted)]">
-          {s.ok} ריצות{s.first && ` · מאז ${fmtDate(s.first)}`}
+          {s.ok} ריצות{(c.growStart || s.first) && ` · מאז ${fmtDate(c.growStart || s.first)}`}
           {s.last && ` · אחרונה ${fmtDate(s.last)}`}
-          {st === "active" && next && ` · חיוב הבא משוער ${fmtDate(next.date)}`}
+          {st === "active" &&
+            next &&
+            ` · חיוב הבא ${c.nextDate ? "" : "משוער "}${fmtDate(next.date)}`}
         </div>
+        {st === "attention" && c.lastPay && (
+          <div className="mt-0.5 text-xs text-[color:var(--focus-destructive)]">{c.lastPay}</div>
+        )}
       </div>
       <div className="text-end">
         <div className="font-bold tabular-nums">{ils(s.net)}</div>

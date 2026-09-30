@@ -22,7 +22,7 @@ import { Badge, Btn, Card, EmptyState, ProjectAvatar, Segmented, Select } from "
 import { parseGrowReport } from "./growreport";
 import { readSheet } from "./xlsx";
 import { useNav } from "./nav";
-import { fmtDate, ils, timeAgo } from "./utils";
+import { daysSince, fmtDate, ils, timeAgo } from "./utils";
 
 const KIND: Record<GrowEntry["kind"], { l: string; c: string }> = {
   so_failed: { l: "הוראת קבע נכשלה", c: C.bad },
@@ -315,12 +315,40 @@ const cStats = (c: SOContact) => {
   };
 };
 
+export type SoState = "active" | "inactive" | "cancelled" | "attention";
+const STALE_DAYS = 38;
+export const SO_STATE_LABEL: Record<SoState, string> = {
+  active: "פעילה",
+  inactive: "לא פעילה",
+  cancelled: "בוטלה",
+  attention: "נדרש טיפול",
+};
+/** a standing order is active when it charged within the last ~5 weeks, unless set by hand */
+export function contactState(c: SOContact): SoState {
+  if (c.status === "active" || c.status === "cancelled" || c.status === "attention")
+    return c.status;
+  const last = c.runs
+    .filter((r) => r.ok)
+    .map((r) => r.date)
+    .sort()
+    .pop();
+  return last && daysSince(last) <= STALE_DAYS ? "active" : "inactive";
+}
+const nextCharge = (c: SOContact) => {
+  const ok = c.runs.filter((r) => r.ok).sort((a, b) => b.date.localeCompare(a.date))[0];
+  if (!ok) return null;
+  const d = new Date(`${ok.date}T12:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + 1);
+  return { date: d.toISOString().slice(0, 10), sum: ok.sum, net: ok.net ?? ok.sum };
+};
+
 export function SoContactsTab() {
   const db = useDB();
   const ref = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
   const [q, setQ] = React.useState("");
   const [view, setView] = React.useState<"contacts" | "months">("months");
+  const [flt, setFlt] = React.useState<"all" | "active" | "off">("all");
 
   const onFile = async (f: File) => {
     setBusy(true);
@@ -351,12 +379,15 @@ export function SoContactsTab() {
     .filter(
       ({ c }) => !q || `${c.name} ${c.phone} ${c.email}`.toLowerCase().includes(q.toLowerCase()),
     )
+    .filter(({ c }) => flt === "all" || (contactState(c) === "active") === (flt === "active"))
     .sort((a, b) => Number(!!a.c.projectId) - Number(!!b.c.projectId) || b.s.net - a.s.net);
   const tot = all.reduce(
     (t, { s }) => ({ ok: t.ok + s.ok, net: t.net + s.net, gross: t.gross + s.gross }),
     { ok: 0, net: 0, gross: 0 },
   );
   const unlinked = all.filter(({ c }) => !c.projectId).length;
+  const activeList = all.filter(({ c }) => contactState(c) === "active");
+  const monthly = activeList.reduce((t, { c }) => t + (nextCharge(c)?.net ?? 0), 0);
 
   return (
     <div className="space-y-3">
@@ -402,10 +433,11 @@ export function SoContactsTab() {
           />
         </div>
         {all.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {(
               [
-                ["אנשי קשר", String(all.length)],
+                ["אנשי קשר", `${activeList.length} פעילות מתוך ${all.length}`],
+                ["צפוי בחודש (נטו)", ils(monthly)],
                 ["ריצות שעברו", String(tot.ok)],
                 ["נגבה (ברוטו)", ils(tot.gross)],
                 ["הרווחתי (נטו)", ils(tot.net)],
@@ -443,6 +475,17 @@ export function SoContactsTab() {
         </Card>
       ) : (
         <Card className="divide-y divide-[color:var(--focus-border)] px-2 py-1">
+          <div className="px-3 py-2">
+            <Segmented
+              value={flt}
+              onChange={setFlt}
+              options={[
+                { value: "all", label: `הכל (${all.length})` },
+                { value: "active", label: `פעילות (${activeList.length})` },
+                { value: "off", label: `לא פעילות (${all.length - activeList.length})` },
+              ]}
+            />
+          </div>
           {all.length > 8 && (
             <div className="px-3 py-2">
               <input
@@ -466,6 +509,8 @@ function ContactRow({ c, s }: { c: SOContact; s: ReturnType<typeof cStats> }) {
   const db = useDB();
   const nav = useNav();
   const p = db.projects.find((x) => x.id === c.projectId);
+  const st = contactState(c);
+  const next = nextCharge(c);
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 text-sm">
       {p ? (
@@ -478,6 +523,11 @@ function ContactRow({ c, s }: { c: SOContact; s: ReturnType<typeof cStats> }) {
       <div className="min-w-40 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-semibold">{c.name || c.email || c.phone || "ללא שם"}</span>
+          <Badge
+            color={st === "active" ? C.ok : st === "attention" ? C.warn : "var(--focus-muted)"}
+          >
+            {SO_STATE_LABEL[st]}
+          </Badge>
           {s.bad > 0 && <Badge color={C.bad}>{s.bad} נכשלו</Badge>}
         </div>
         <div className="mt-0.5 text-xs text-[color:var(--focus-muted)]" dir="auto">
@@ -488,6 +538,7 @@ function ContactRow({ c, s }: { c: SOContact; s: ReturnType<typeof cStats> }) {
         <div className="mt-0.5 text-xs text-[color:var(--focus-muted)]">
           {s.ok} ריצות{s.first && ` · מאז ${fmtDate(s.first)}`}
           {s.last && ` · אחרונה ${fmtDate(s.last)}`}
+          {st === "active" && next && ` · חיוב הבא משוער ${fmtDate(next.date)}`}
         </div>
       </div>
       <div className="text-end">
@@ -496,7 +547,20 @@ function ContactRow({ c, s }: { c: SOContact; s: ReturnType<typeof cStats> }) {
           נטו · {ils(s.gross)} ברוטו
         </div>
       </div>
-      <div className="flex w-full items-center gap-2 sm:w-64">
+      <div className="flex w-full items-center gap-2 sm:w-80">
+        <div className="w-28 shrink-0">
+          <Select
+            value={c.status ?? "auto"}
+            onChange={(v) => actions.patchContact(c.id, { status: v as SOContact["status"] })}
+            options={["auto", "active", "attention", "cancelled"]}
+            labels={{
+              auto: "סטטוס: אוטומטי",
+              active: "פעילה",
+              attention: "נדרש טיפול",
+              cancelled: "בוטלה",
+            }}
+          />
+        </div>
         <div className="min-w-0 flex-1">
           <Select
             value={c.projectId}

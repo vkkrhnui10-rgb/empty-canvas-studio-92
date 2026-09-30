@@ -97,6 +97,8 @@ export interface SOContact {
   projectId: string;
   runs: SORun[];
   created: number;
+  /** set by hand when Grow's state differs from what the runs suggest */
+  status?: "auto" | "active" | "cancelled" | "attention";
 }
 
 export interface SiteCheck {

@@ -12,11 +12,27 @@ import {
   Sun,
   Trash2,
   X,
+  Timer,
+  CheckCircle2,
+  Target,
+  PauseCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { C, PRIORITIES, PRIORITY_ORDER, accentFor } from "./constants";
 import { actions, findProject, useDB } from "./store";
 import type { Task } from "./types";
-import { Badge, Btn, Card, EmptyState, Input, PageHeader, Progress, Segmented, Select } from "./ui";
+import {
+  Badge,
+  Btn,
+  Card,
+  EmptyState,
+  Input,
+  PageHeader,
+  Progress,
+  Segmented,
+  Select,
+  StatCard,
+} from "./ui";
 import { dayKey, fmtMin, isOpen, todayStr } from "./utils";
 import { useNav } from "./nav";
 import { TaskRow } from "./tasks";
@@ -74,7 +90,7 @@ export function TasksView({ inbox }: { inbox?: boolean }) {
   const clear = () => setSel(new Set());
 
   return (
-    <div className="mx-auto max-w-4xl p-4 pb-28 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8 pb-28">
       <PageHeader
         title={inbox ? "תיבת משימות" : "כל המשימות"}
         subtitle={
@@ -325,15 +341,22 @@ export function WeeklyView() {
   const stuck = db.tasks.filter((t) => (t.deferCount ?? 0) >= 2 && isOpen(t));
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4 p-4 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8 space-y-4">
       <PageHeader
         title="סיכום שבועי"
         subtitle="7 הימים האחרונים — מה עבד, מה תקוע, איפה הלך הזמן."
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi l="זמן פוקוס" v={fmtMin(totalFocus)} c={C.primary} />
-        <Kpi l="משימות שהושלמו" v={String(totalDone)} c={C.ok} />
+        <Kpi l="זמן פוקוס" v={fmtMin(totalFocus)} c={C.primary} icon={Timer} sub="7 ימים אחרונים" />
         <Kpi
+          l="משימות שהושלמו"
+          v={String(totalDone)}
+          c={C.ok}
+          icon={CheckCircle2}
+          sub={`${(totalDone / 7).toFixed(1)} ביום בממוצע`}
+        />
+        <Kpi
+          icon={Target}
           l="דיוק הערכות"
           v={ratio ? `×${ratio.toFixed(1)}` : "—"}
           sub={
@@ -348,6 +371,8 @@ export function WeeklyView() {
           c={ratio > 1.2 ? C.warn : undefined}
         />
         <Kpi
+          icon={PauseCircle}
+          sub={stalled.length ? "כדאי להחליט עליהם" : "הכול בתנועה"}
           l="פרויקטים שלא זזו"
           v={String(stalled.length)}
           c={stalled.length ? C.warn : undefined}
@@ -356,7 +381,7 @@ export function WeeklyView() {
 
       <Card className="p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-semibold">זמן פוקוס לפי יום</h2>
+          <h2 className="text-[17px] font-bold">זמן פוקוס לפי יום</h2>
           <span className="text-xs text-[color:var(--focus-muted)]">
             ממוצע {fmtMin(totalFocus / 7)} ליום
           </span>
@@ -376,11 +401,13 @@ export function WeeklyView() {
                 </span>
                 <div
                   title={`${doneByDay[i]} משימות הושלמו`}
-                  className="w-full max-w-12 rounded-t-lg transition-all"
+                  className="w-full max-w-12 rounded-t-[8px] transition-all"
                   style={{
                     height: `${Math.max(3, (focusByDay[i] / maxMin) * 100)}%`,
                     background:
-                      i === 6 ? C.primary : `color-mix(in oklab, ${C.violet} 65%, transparent)`,
+                      i === 6
+                        ? `linear-gradient(180deg, ${C.violet}, ${C.primary})`
+                        : `color-mix(in oklab, ${C.primary} 22%, var(--focus-card))`,
                   }}
                 />
                 <span className="text-xs text-[color:var(--focus-muted)]">
@@ -394,7 +421,7 @@ export function WeeklyView() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="p-5">
-          <h2 className="mb-3 font-semibold">לאן הלך הזמן</h2>
+          <h2 className="mb-4 text-[17px] font-bold">לאן הלך הזמן</h2>
           {perProject.length === 0 ? (
             <div className="text-sm text-[color:var(--focus-muted)]">אין עדיין נתונים</div>
           ) : (
@@ -417,7 +444,7 @@ export function WeeklyView() {
           )}
         </Card>
         <Card className="p-5">
-          <h2 className="mb-3 font-semibold">דורש החלטה</h2>
+          <h2 className="mb-4 text-[17px] font-bold">דורש החלטה</h2>
           <div className="space-y-1.5">
             {stalled.map((p) => (
               <button
@@ -456,14 +483,18 @@ export function WeeklyView() {
     </div>
   );
 }
-function Kpi({ l, v, c, sub }: { l: string; v: string; c?: string; sub?: string }) {
-  return (
-    <Card className="p-4">
-      <div className="text-xs text-[color:var(--focus-muted)]">{l}</div>
-      <div className="mt-1.5 text-2xl font-bold tabular-nums" style={{ color: c }}>
-        {v}
-      </div>
-      {sub && <div className="mt-0.5 text-[11px] text-[color:var(--focus-muted)]">{sub}</div>}
-    </Card>
-  );
+function Kpi({
+  l,
+  v,
+  c,
+  sub,
+  icon,
+}: {
+  l: string;
+  v: string;
+  c?: string;
+  sub?: string;
+  icon?: LucideIcon;
+}) {
+  return <StatCard label={l} value={v} color={c} sub={sub} icon={icon} />;
 }

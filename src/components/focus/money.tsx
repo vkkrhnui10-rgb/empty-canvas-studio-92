@@ -14,6 +14,13 @@ import {
   Wallet,
   Sparkles,
   Receipt,
+  TrendingUp,
+  Hammer,
+  CircleDollarSign,
+  Users,
+  Tag,
+  Repeat,
+  type LucideIcon,
 } from "lucide-react";
 import { C, SO_STATES } from "./constants";
 import { actions, computeAlerts, findProject, useDB } from "./store";
@@ -30,6 +37,9 @@ import {
   PageHeader,
   Segmented,
   Textarea,
+  ProjectAvatar,
+  StatCard,
+  Progress,
 } from "./ui";
 import { balanceOf, ils, payState, uid } from "./utils";
 import { useNav } from "./nav";
@@ -55,13 +65,19 @@ export function FinancesView() {
       ["failed", "none", "check", "paused", "ok", "cancelled"].indexOf(b.soState),
   );
 
-  const kpis: [string, string, string?][] = [
-    ["הכנסה שנתית משוערת", ils(monthly * 12)],
-    ["סך מחירי בנייה", ils(totBuild)],
-    ["סך ששולם", ils(totPaid), C.ok],
-    [`לקוחות ב-${ils(db.settings.defaultHostPrice)}`, String(std)],
-    ["לקוחות במחיר חריג", String(hosted.length - std)],
-    ["הוראות קבע תקינות / לטיפול", `${soOk} / ${soBad}`, soBad ? C.warn : undefined],
+  const kpis: [string, string, LucideIcon, string?, string?][] = [
+    ["הכנסה שנתית משוערת", ils(monthly * 12), TrendingUp, undefined, "מאחסון בלבד"],
+    ["סך מחירי בנייה", ils(totBuild), Hammer],
+    [
+      "סך ששולם",
+      ils(totPaid),
+      CircleDollarSign,
+      C.ok,
+      totBuild ? `${Math.round((totPaid / totBuild) * 100)}% מסך הבנייה` : undefined,
+    ],
+    [`לקוחות במחיר רגיל`, String(std), Users, undefined, ils(db.settings.defaultHostPrice)],
+    ["לקוחות במחיר חריג", String(hosted.length - std), Tag],
+    ["הוראות קבע", `${soOk} / ${soBad}`, Repeat, soBad ? C.warn : undefined, "תקינות / לטיפול"],
   ];
 
   return (
@@ -84,13 +100,8 @@ export function FinancesView() {
         />
       </div>
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-3">
-        {kpis.map(([l, v, c]) => (
-          <Card key={l} className="p-5">
-            <div className="text-[15px] font-bold">{l}</div>
-            <div className="mt-2 truncate text-[24px] font-bold tabular-nums" style={{ color: c }}>
-              {v}
-            </div>
-          </Card>
+        {kpis.map(([l, v, icon, c, sub]) => (
+          <StatCard key={l} label={l} value={v} icon={icon} color={c} sub={sub} />
         ))}
       </div>
       <div className="mb-3">
@@ -113,25 +124,26 @@ export function FinancesView() {
             />
           </Card>
         ) : (
-          <div className="space-y-1.5">
+          <Card className="divide-y divide-[color:var(--focus-border)] px-2 py-1">
             {debtors.map((p) => (
               <DebtRow key={p.id} p={p} />
             ))}
-          </div>
+          </Card>
         )
       ) : hostList.length === 0 ? (
         <Card>
           <EmptyState icon={Wallet} title="אין אתרים מאוחסנים" />
         </Card>
       ) : (
-        <div className="space-y-1.5">
+        <Card className="divide-y divide-[color:var(--focus-border)] px-2 py-1">
           {hostList.map((p) => (
             <button
               key={p.id}
               onClick={() => nav.go("project", p.id)}
-              className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-2xl bg-[var(--focus-bg2)] px-4 py-3 text-right text-sm hover:bg-[var(--focus-card-hi)]"
+              className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-lg px-3 py-3 text-right text-sm transition-colors hover:bg-[var(--focus-bg2)]"
             >
-              <span className="min-w-32 flex-1 truncate font-medium">{p.name}</span>
+              <ProjectAvatar id={p.id} name={p.name} size={34} />
+              <span className="min-w-32 flex-1 truncate font-semibold">{p.name}</span>
               <span className="w-24 tabular-nums">
                 {ils(p.hostPrice)}
                 {p.hostPrice !== db.settings.defaultHostPrice && (
@@ -146,7 +158,7 @@ export function FinancesView() {
               </span>
             </button>
           ))}
-        </div>
+        </Card>
       )}
     </div>
   );
@@ -158,12 +170,18 @@ function DebtRow({ p }: { p: Project }) {
   const bal = balanceOf(p);
   const st = payState(p);
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--focus-bg2)] px-4 py-3 text-sm">
-      <button onClick={() => nav.go("project", p.id)} className="min-w-32 flex-1 text-right">
-        <div className="font-medium">{p.name}</div>
+    <div className="flex flex-wrap items-center gap-3 rounded-lg px-3 py-3.5 text-sm">
+      <ProjectAvatar id={p.id} name={p.name} size={38} />
+      <button onClick={() => nav.go("project", p.id)} className="min-w-40 flex-1 text-right">
+        <div className="font-semibold">{p.name}</div>
         <div className="text-xs text-[color:var(--focus-muted)]">
           {p.client} · שולם {ils(p.paid)} מתוך {ils(p.buildPrice)}
         </div>
+        <Progress
+          className="mt-1.5 max-w-56"
+          value={(p.paid / Math.max(1, p.buildPrice)) * 100}
+          color={C.ok}
+        />
       </button>
       <Badge color={st === "באיחור" ? C.bad : C.warn}>{st}</Badge>
       <span className="w-24 text-left text-base font-bold tabular-nums text-[color:var(--focus-warning)]">
@@ -202,7 +220,7 @@ export function CpanelsView() {
   const nav = useNav();
   const [f, setF] = React.useState<Cpanel | null>(null);
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8">
       <PageHeader
         title="פאנלי cPanel"
         subtitle="איזה אתר נמצא איפה — בלי לחפש."
@@ -235,13 +253,13 @@ export function CpanelsView() {
           />
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {db.cpanels.map((c) => {
             const sites = db.projects.filter((p) => p.cpanelId === c.id);
             return (
               <Card key={c.id} className="p-5">
                 <div className="flex items-start gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--focus-bg2)] text-[color:var(--focus-primary)]">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--focus-soft)] text-[color:var(--focus-primary)]">
                     <Server className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -271,8 +289,9 @@ export function CpanelsView() {
                       <button
                         key={s.id}
                         onClick={() => nav.go("project", s.id)}
-                        className="rounded-full border border-[color:var(--focus-border)] px-2.5 py-0.5 text-xs hover:border-[color:var(--focus-primary)] hover:text-[color:var(--focus-primary)]"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-[color:var(--focus-border)] py-0.5 pl-2.5 pr-0.5 text-xs font-medium hover:border-[color:var(--focus-primary)] hover:text-[color:var(--focus-primary)]"
                       >
+                        <ProjectAvatar id={s.id} name={s.name} size={20} />
                         {s.name}
                       </button>
                     ))}
@@ -365,7 +384,7 @@ export function AlertsView() {
   const bad = alerts.filter((a) => a.sev === "bad");
   const warn = alerts.filter((a) => a.sev === "warn");
   return (
-    <div className="mx-auto max-w-3xl p-4 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8">
       <PageHeader title="התראות" subtitle="רק מה שדורש ממך פעולה." />
       {alerts.length === 0 ? (
         <Card>
@@ -383,10 +402,17 @@ export function AlertsView() {
 function Group({ title, items }: { title: string; items: Alert[] }) {
   return (
     <div>
-      <div className="mb-2 text-xs font-medium text-[color:var(--focus-muted)]">
-        {title} · {items.length}
+      <div className="mb-3 flex items-center gap-2 text-sm font-bold">
+        <span
+          className="size-2 rounded-full"
+          style={{ background: items[0]?.sev === "bad" ? C.bad : C.warn }}
+        />
+        {title}
+        <span className="rounded-full bg-[var(--focus-bg2)] px-2 py-0.5 text-xs font-semibold text-[color:var(--focus-muted)]">
+          {items.length}
+        </span>
       </div>
-      <div className="space-y-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         {items.map((a) => (
           <AlertCard key={a.id} a={a} />
         ))}
@@ -400,15 +426,37 @@ export function AlertCard({ a }: { a: Alert }) {
   const [note, setNote] = React.useState<string | null>(null);
   const p = findProject(db, a.projectId);
   return (
-    <Card className="p-4">
+    <Card className="relative overflow-hidden p-4 pr-5">
+      <span
+        aria-hidden
+        className="absolute inset-y-0 right-0 w-1"
+        style={{ background: a.sev === "bad" ? C.bad : C.warn }}
+      />
       <div className="flex items-start gap-3">
-        <AlertTriangle
-          className="mt-0.5 size-4 shrink-0"
-          style={{ color: a.sev === "bad" ? C.bad : C.warn }}
-        />
-        <div className="min-w-0 flex-1 text-sm">{a.txt}</div>
+        <span
+          className="flex size-9 shrink-0 items-center justify-center rounded-[10px]"
+          style={{
+            color: a.sev === "bad" ? C.bad : C.warn,
+            background: `color-mix(in oklab, ${a.sev === "bad" ? C.bad : C.warn} 12%, transparent)`,
+          }}
+        >
+          <AlertTriangle className="size-4" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14.5px] font-semibold leading-snug">{a.txt}</div>
+          {p && <div className="mt-0.5 text-xs text-[color:var(--focus-muted)]">{p.name}</div>}
+        </div>
+        <Btn
+          size="sm"
+          variant="outline"
+          icon={Check}
+          onClick={() => actions.dismissAlert(a.id)}
+          className="shrink-0"
+        >
+          טופל
+        </Btn>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5 pr-7">
+      <div className="mt-3 flex flex-wrap gap-1.5 pr-12">
         {a.projectId && (
           <Btn
             size="sm"
@@ -447,14 +495,11 @@ export function AlertCard({ a }: { a: Alert }) {
           </Btn>
         )}
         <Btn size="sm" variant="ghost" icon={Clock} onClick={() => actions.dismissAlert(a.id, 3)}>
-          דחה ל-3 ימים
-        </Btn>
-        <Btn size="sm" variant="ghost" icon={Check} onClick={() => actions.dismissAlert(a.id)}>
-          טופל
+          עוד 3 ימים
         </Btn>
       </div>
       {note !== null && p && (
-        <div className="mt-3 flex gap-2 pr-7">
+        <div className="mt-3 flex gap-2 pr-12">
           <Input
             autoFocus
             value={note}

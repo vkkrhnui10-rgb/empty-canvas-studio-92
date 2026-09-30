@@ -21,6 +21,7 @@ import {
   Trophy,
   UserX,
   X,
+  Pencil,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { C, FOCUS_QUOTES } from "./constants";
@@ -69,41 +70,95 @@ function TimerRing({
   children: React.ReactNode;
   glow?: boolean;
 }) {
-  const r = (size - stroke * 2) / 2 - 6;
+  const r = (size - stroke * 2) / 2 - 10;
   const circ = 2 * Math.PI * r;
+  const f = Math.max(0, Math.min(1, frac));
+  const c = size / 2;
+  const gid = React.useId().replace(/:/g, "");
+  // knob position (svg is rotated -90deg, so angle 0 = top)
+  const ang = 2 * Math.PI * f;
+  const kx = c + r * Math.cos(ang);
+  const ky = c + r * Math.sin(ang);
   return (
     <div className="relative" style={{ width: size, height: size }}>
       {glow && (
         <div
           className="pointer-events-none absolute rounded-full transition-opacity duration-700"
           style={{
-            inset: stroke + 6,
-            boxShadow: `0 0 60px -6px color-mix(in oklab, ${color} 45%, transparent), inset 0 0 40px -10px color-mix(in oklab, ${color} 30%, transparent)`,
+            inset: stroke + 10,
+            boxShadow: `0 0 70px -8px color-mix(in oklab, ${color} 50%, transparent), inset 0 0 50px -12px color-mix(in oklab, ${color} 35%, transparent)`,
           }}
         />
       )}
+      <div
+        className="pointer-events-none absolute rounded-full"
+        style={{
+          inset: stroke + 22,
+          background:
+            "radial-gradient(circle at 50% 35%, color-mix(in oklab, var(--focus-card-hi) 70%, transparent), transparent 70%)",
+        }}
+      />
       <svg width={size} height={size} className="-rotate-90">
+        <defs>
+          <linearGradient id={`g${gid}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={color} />
+            <stop offset="100%" stopColor="var(--focus-violet)" />
+          </linearGradient>
+        </defs>
+        {Array.from({ length: 60 }, (_, i) => {
+          const a = (i / 60) * 2 * Math.PI;
+          const major = i % 5 === 0;
+          const r1 = r + stroke / 2 + 5;
+          const r2 = r1 + (major ? 6 : 3);
+          return (
+            <line
+              key={i}
+              x1={c + r1 * Math.cos(a)}
+              y1={c + r1 * Math.sin(a)}
+              x2={c + r2 * Math.cos(a)}
+              y2={c + r2 * Math.sin(a)}
+              stroke="var(--focus-muted)"
+              strokeOpacity={major ? 0.5 : 0.22}
+              strokeWidth={major ? 1.5 : 1}
+              strokeLinecap="round"
+            />
+          );
+        })}
         <circle
-          cx={size / 2}
-          cy={size / 2}
+          cx={c}
+          cy={c}
           r={r}
           fill="none"
           stroke="var(--focus-border)"
-          strokeOpacity={0.55}
+          strokeOpacity={0.6}
           strokeWidth={stroke}
         />
         <circle
-          cx={size / 2}
-          cy={size / 2}
+          cx={c}
+          cy={c}
           r={r}
           fill="none"
-          stroke={color}
+          stroke={`url(#g${gid})`}
           strokeWidth={stroke}
           strokeLinecap="round"
           strokeDasharray={circ}
-          strokeDashoffset={circ * (1 - Math.max(0, Math.min(1, frac)))}
+          strokeDashoffset={circ * (1 - f)}
           style={{ transition: "stroke-dashoffset 1s linear" }}
         />
+        {f > 0.005 && f < 0.995 && (
+          <circle
+            cx={kx}
+            cy={ky}
+            r={stroke * 0.95}
+            fill="#fff"
+            stroke={color}
+            strokeWidth={3}
+            style={{
+              transition: "cx 1s linear, cy 1s linear",
+              filter: `drop-shadow(0 0 6px ${color})`,
+            }}
+          />
+        )}
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">{children}</div>
     </div>
@@ -339,35 +394,51 @@ export function FocusView() {
 
         {/* flow actions */}
         {task && !isBreak && (
-          <div className="mt-8 flex flex-wrap justify-center gap-2">
-            <Btn variant="primary" icon={Check} onClick={complete}>
-              בוצע
-            </Btn>
-            <Btn icon={Coffee} onClick={actions.startBreak}>
-              הפסקה
-            </Btn>
-            <Btn
-              icon={UserX}
-              onClick={() => actions.setFlowStatus(task.id, "waiting", {}, "הועבר להמתנה ללקוח")}
-            >
-              ממתין ללקוח
-            </Btn>
-            <Btn icon={AlertOctagon} onClick={() => setBlockOpen(true)}>
-              נתקלתי בבעיה
-            </Btn>
-            <Btn variant="outline" icon={SkipForward} onClick={() => actions.skipLater(task.id)}>
-              אחר כך
-            </Btn>
-            <Btn
-              variant="outline"
-              icon={CalendarArrowUp}
-              onClick={() => actions.moveToTomorrow(task.id)}
-            >
-              למחר
-            </Btn>
-            <Btn variant="ghost" onClick={() => nav.openTask(task.id)}>
-              ערוך
-            </Btn>
+          <div className="mt-8 flex w-full flex-col items-center gap-3">
+            <div className="flex flex-wrap justify-center gap-2.5">
+              <Btn
+                variant="primary"
+                icon={Check}
+                onClick={complete}
+                className="h-12 rounded-full px-7 text-[15px] shadow-[0_10px_30px_-10px_var(--focus-primary)]"
+              >
+                בוצע
+              </Btn>
+              <Btn icon={Coffee} onClick={actions.startBreak} className="h-12 rounded-full px-6">
+                הפסקה
+              </Btn>
+              <Btn
+                variant="outline"
+                icon={SkipForward}
+                onClick={() => actions.skipLater(task.id)}
+                className="h-12 rounded-full px-6"
+              >
+                אחר כך
+              </Btn>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-1 rounded-full border border-[color:var(--focus-border)] bg-[var(--focus-card)]/60 p-1 backdrop-blur">
+              {(
+                [
+                  [
+                    UserX,
+                    "ממתין ללקוח",
+                    () => actions.setFlowStatus(task.id, "waiting", {}, "הועבר להמתנה ללקוח"),
+                  ],
+                  [AlertOctagon, "נתקלתי בבעיה", () => setBlockOpen(true)],
+                  [CalendarArrowUp, "למחר", () => actions.moveToTomorrow(task.id)],
+                  [Pencil, "עריכה", () => nav.openTask(task.id)],
+                ] as const
+              ).map(([Icon, label, fn]) => (
+                <button
+                  key={label}
+                  onClick={fn}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium text-[color:var(--focus-muted)] transition-colors hover:bg-[var(--focus-card-hi)] hover:text-[color:var(--focus-foreground)]"
+                >
+                  <Icon className="size-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

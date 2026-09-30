@@ -95,7 +95,7 @@ export function ProjectsView() {
     );
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8">
       <PageHeader
         title="פרויקטים"
         subtitle={`${db.projects.length} פרויקטים · ${db.projects.filter((p) => !CLOSED_PROJECT.includes(p.status)).length} פעילים`}
@@ -595,7 +595,7 @@ export function ProjectPage({ id }: { id: string }) {
   const activity = db.activity.filter((a) => a.projectId === p.id).slice(0, 80);
 
   return (
-    <div className="mx-auto max-w-5xl p-4 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8">
       <button
         onClick={() => nav.go("projects")}
         className="mb-3 inline-flex items-center gap-1 text-sm text-[color:var(--focus-muted)] hover:text-[color:var(--focus-foreground)]"

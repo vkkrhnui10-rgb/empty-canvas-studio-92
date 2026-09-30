@@ -62,7 +62,7 @@ export function Planner() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8">
       <PageHeader
         title="תכנון היום"
         subtitle={new Date().toLocaleDateString("he-IL", {

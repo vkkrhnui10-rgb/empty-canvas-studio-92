@@ -28,6 +28,7 @@ import {
   Progress,
   ProjectAvatar,
   SectionTitle,
+  StatCard,
 } from "./ui";
 import { balanceOf, fmtMin, greeting, ils, isOpen, todayStr } from "./utils";
 import { useNav } from "./nav";
@@ -226,26 +227,16 @@ export function Dashboard() {
       {/* row 2 — KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {kpis.map((x) => (
-          <Card key={x.l} onClick={x.go} className="p-5">
-            <div className="flex items-center justify-between">
-              <span className="text-[15px] font-bold">{x.l}</span>
-              <span className="flex size-9 items-center justify-center rounded-full bg-[var(--focus-soft)] text-[color:var(--focus-primary)]">
-                <x.icon className="size-[18px]" />
-              </span>
-            </div>
-            <div
-              className="mt-3 truncate text-[28px] leading-none font-bold tabular-nums"
-              style={{ color: x.c }}
-            >
-              {x.v}
-            </div>
-            <div
-              className="mt-2 text-[13px] font-medium text-[color:var(--focus-muted)]"
-              style={{ color: x.subC }}
-            >
-              {x.sub}
-            </div>
-          </Card>
+          <StatCard
+            key={x.l}
+            label={x.l}
+            value={x.v}
+            sub={x.sub}
+            icon={x.icon}
+            color={x.c}
+            subColor={x.subC}
+            onClick={x.go}
+          />
         ))}
       </div>
 

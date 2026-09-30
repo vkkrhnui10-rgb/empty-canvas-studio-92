@@ -134,6 +134,24 @@ export function TaskRow({
         </div>
         {!compact && (
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-[color:var(--focus-muted)]">
+            {(t.priority === "urgent" || t.priority === "high") && isOpen(t) && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full px-1.5 py-px font-semibold"
+                style={{
+                  color: PRIO_COLOR[t.priority],
+                  background: `color-mix(in oklab, ${PRIO_COLOR[t.priority]} 12%, transparent)`,
+                }}
+              >
+                <Flag className="size-3" />
+                {PRIORITIES[t.priority]}
+              </span>
+            )}
+            {inToday && isOpen(t) && t.status !== "today" && (
+              <span className="inline-flex items-center gap-1 text-[color:var(--focus-primary)]">
+                <Sun className="size-3" />
+                היום
+              </span>
+            )}
             {showProject && p && (
               <span className="inline-flex items-center gap-1">
                 <FolderKanban className="size-3" />
@@ -141,7 +159,13 @@ export function TaskRow({
               </span>
             )}
             {!["todo", "inbox"].includes(t.status) && (
-              <span style={{ color: STATUS_COLOR[t.status] }}>{STATUSES[t.status]}</span>
+              <span
+                className="inline-flex items-center gap-1"
+                style={{ color: STATUS_COLOR[t.status] }}
+              >
+                {t.status === "today" && <Sun className="size-3" />}
+                {STATUSES[t.status]}
+              </span>
             )}
             {t.due && (
               <span
@@ -169,41 +193,36 @@ export function TaskRow({
       </button>
 
       <div className="flex shrink-0 items-center gap-0.5">
-        <IconBtn
-          icon={Flag}
-          label={`עדיפות: ${PRIORITIES[t.priority]} (לחץ לשינוי)`}
-          style={{ color: PRIO_COLOR[t.priority] }}
-          className={cn(
-            t.priority === "normal" || t.priority === "low"
-              ? "opacity-0 group-hover:opacity-100"
-              : "",
+        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
+          <IconBtn
+            icon={Flag}
+            label={`עדיפות: ${PRIORITIES[t.priority]} (לחץ לשינוי)`}
+            style={{ color: PRIO_COLOR[t.priority] }}
+            onClick={() =>
+              actions.patchTask(t.id, {
+                priority: PRIORITY_ORDER[(PRIORITY_ORDER.indexOf(t.priority) + 1) % 4],
+              })
+            }
+          />
+          {isOpen(t) && (
+            <IconBtn
+              icon={inToday ? SunDim : Sun}
+              label={inToday ? "הסר מהיום" : "הוסף להיום"}
+              active={inToday}
+              onClick={() => (inToday ? actions.removeFromToday(t.id) : actions.toToday([t.id]))}
+            />
           )}
-          onClick={() =>
-            actions.patchTask(t.id, {
-              priority: PRIORITY_ORDER[(PRIORITY_ORDER.indexOf(t.priority) + 1) % 4],
-            })
-          }
-        />
-        {isOpen(t) && (
-          <IconBtn
-            icon={inToday ? SunDim : Sun}
-            label={inToday ? "הסר מהיום" : "הוסף להיום"}
-            active={inToday}
-            className={cn(!inToday && "opacity-0 group-hover:opacity-100")}
-            onClick={() => (inToday ? actions.removeFromToday(t.id) : actions.toToday([t.id]))}
-          />
-        )}
-        {isOpen(t) && (
-          <IconBtn
-            icon={Play}
-            label="התחל פוקוס"
-            className="opacity-0 group-hover:opacity-100"
-            onClick={() => {
-              actions.startFocus(t.id);
-              nav.go("focus");
-            }}
-          />
-        )}
+          {isOpen(t) && (
+            <IconBtn
+              icon={Play}
+              label="התחל פוקוס"
+              onClick={() => {
+                actions.startFocus(t.id);
+                nav.go("focus");
+              }}
+            />
+          )}
+        </div>
         <TaskMenu t={t} />
       </div>
     </div>

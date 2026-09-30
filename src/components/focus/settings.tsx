@@ -91,7 +91,7 @@ export function SettingsView() {
     typeof window !== "undefined" ? localStorage.getItem("focus-last-backup") : null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-4 p-4 sm:p-6">
+    <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8 grid items-start gap-4 xl:grid-cols-2 xl:[&>*:first-child]:col-span-2">
       <PageHeader title="הגדרות" />
       <Card className="space-y-4 p-5">
         <h2 className="text-[17px] font-bold">עבודה ופוקוס</h2>
@@ -236,7 +236,7 @@ export function SettingsView() {
       </Card>
 
       <Card className="p-5">
-        <h2 className="mb-3 font-semibold">קיצורי מקלדת</h2>
+        <h2 className="mb-3 text-[17px] font-bold">קיצורי מקלדת</h2>
         <ShortcutList />
       </Card>
     </div>
@@ -283,7 +283,7 @@ export const SHORTCUTS: [string, string][] = [
 ];
 export function ShortcutList() {
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
       {SHORTCUTS.map(([k, l]) => (
         <div
           key={k}

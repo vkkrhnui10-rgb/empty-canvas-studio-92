@@ -471,6 +471,52 @@ export function GradientStat({
   );
 }
 
+/** white KPI card — label, tinted icon, big number, sub line */
+export function StatCard({
+  label,
+  value,
+  sub,
+  icon: Icon,
+  color,
+  subColor,
+  onClick,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  icon?: LucideIcon;
+  color?: string;
+  subColor?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <Card onClick={onClick} className="p-5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate text-[15px] font-bold">{label}</span>
+        {Icon && (
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--focus-soft)] text-[color:var(--focus-primary)]">
+            <Icon className="size-[18px]" />
+          </span>
+        )}
+      </div>
+      <div
+        className="mt-3 truncate text-[28px] leading-none font-bold tabular-nums"
+        style={{ color }}
+      >
+        {value}
+      </div>
+      {sub && (
+        <div
+          className="mt-2 truncate text-[13px] font-medium text-[color:var(--focus-muted)]"
+          style={{ color: subColor }}
+        >
+          {sub}
+        </div>
+      )}
+    </Card>
+  );
+}
+
 /** Grow-style link action: "לכל ההתנועות ›" */
 export function LinkAction({
   children,

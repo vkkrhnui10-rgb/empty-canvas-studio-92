@@ -7,6 +7,9 @@ import {
   ExternalLink,
   FolderKanban,
   Globe,
+  Monitor,
+  RefreshCw,
+  Smartphone,
   LayoutGrid,
   LayoutTemplate,
   List,
@@ -41,7 +44,7 @@ import {
   accentFor,
 } from "./constants";
 import { actions, findProject, newProject, useDB } from "./store";
-import type { Project, SOState } from "./types";
+import type { Project, SOState, SiteCheck } from "./types";
 import {
   Badge,
   Btn,
@@ -63,6 +66,7 @@ import {
 import { balanceOf, daysSince, fmtDate, ils, isOpen, payState, timeAgo, uid } from "./utils";
 import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
+import { checkSite, normUrl } from "./sitecheck";
 import { TaskRow } from "./tasks";
 
 const siteColor = (s: string) =>
@@ -732,7 +736,8 @@ export function ProjectPage({ id }: { id: string }) {
         </TabsList>
 
         <TabsContent value="overview">
-          <div className="grid gap-3 md:grid-cols-3">
+          {p.url && <SiteCard p={p} />}
+          <div className="mt-3 grid gap-3 md:grid-cols-3">
             <MiniCard icon={Wallet} title="תשלום" onClick={() => setTab("money")}>
               <div
                 className="text-xl font-bold tabular-nums"
@@ -1595,5 +1600,111 @@ function SoRuns({ p }: { p: Project }) {
         </ul>
       )}
     </div>
+  );
+}
+
+
+/* ---------------- live site: is it up + live preview ---------------- */
+function SiteCard({ p }: { p: Project }) {
+  const [busy, setBusy] = React.useState(false);
+  const [preview, setPreview] = React.useState(false);
+  const [mobile, setMobile] = React.useState(false);
+  const [nonce, setNonce] = React.useState(0);
+  const c: SiteCheck | undefined = p.siteCheck;
+
+  const run = React.useCallback(async () => {
+    setBusy(true);
+    const r = await checkSite(p.url);
+    actions.patchProject(p.id, { siteCheck: r });
+    setBusy(false);
+  }, [p.id, p.url]);
+
+  // check automatically when the project opens (if the last check is older than 10 minutes)
+  const last = c?.at ?? 0;
+  React.useEffect(() => {
+    if (Date.now() - last > 10 * 60_000) void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.id, p.url]);
+
+  const up = c?.ok;
+  const color = !c ? "var(--focus-muted)" : up ? C.ok : C.bad;
+  const label = !c
+    ? "טרם נבדק"
+    : up
+      ? `האתר עובד${c.status ? ` · ${c.status}` : ""}${c.ms ? ` · ${c.ms}ms` : ""}`
+      : `האתר לא זמין${c.status ? ` · ${c.status}` : ""}${c.error ? ` · ${c.error}` : ""}`;
+
+  return (
+    <Card className="p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <span
+          className={cn("size-3 shrink-0 rounded-full", busy && "animate-pulse")}
+          style={{ background: color }}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold" style={{ color: up === false ? C.bad : undefined }}>
+            {busy ? "בודק…" : label}
+          </div>
+          <div className="truncate text-xs text-[color:var(--focus-muted)]" dir="ltr">
+            {c ? `נבדק ${timeAgo(c.at)} · ` : ""}
+            {p.url}
+          </div>
+        </div>
+        <Btn size="sm" variant="soft" icon={RefreshCw} disabled={busy} onClick={run}>
+          בדוק עכשיו
+        </Btn>
+        <Btn
+          size="sm"
+          variant={preview ? "primary" : "outline"}
+          icon={Globe}
+          onClick={() => setPreview((v) => !v)}
+        >
+          {preview ? "סגור תצוגה" : "תצוגה חיה"}
+        </Btn>
+        <a href={normUrl(p.url)} target="_blank" rel="noreferrer">
+          <IconBtn icon={ExternalLink} label="פתח בכרטיסייה חדשה" />
+        </a>
+      </div>
+      {preview && (
+        <div className="mt-4">
+          <div className="mb-2 flex items-center gap-2">
+            <Btn
+              size="sm"
+              variant={mobile ? "outline" : "soft"}
+              icon={Monitor}
+              onClick={() => setMobile(false)}
+            >
+              מחשב
+            </Btn>
+            <Btn
+              size="sm"
+              variant={mobile ? "soft" : "outline"}
+              icon={Smartphone}
+              onClick={() => setMobile(true)}
+            >
+              נייד
+            </Btn>
+            <Btn size="sm" variant="ghost" icon={RefreshCw} onClick={() => setNonce((n) => n + 1)}>
+              רענן
+            </Btn>
+          </div>
+          <div className="flex justify-center overflow-hidden rounded-xl border border-[color:var(--focus-border)] bg-[var(--focus-bg2)]">
+            <iframe
+              key={`${nonce}-${mobile}`}
+              src={normUrl(p.url)}
+              title={p.name}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              className="h-[520px] bg-white"
+              style={{ width: mobile ? 390 : "100%", maxWidth: "100%" }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-[color:var(--focus-muted)]">
+            אם התצוגה ריקה, האתר חוסם הצגה בתוך אתרים אחרים — השתמש בכפתור "פתח בכרטיסייה חדשה".
+          </p>
+        </div>
+      )}
+    </Card>
   );
 }

@@ -84,6 +84,14 @@ export interface SORun {
   txCode?: string;
 }
 
+export interface SiteCheck {
+  at: number;
+  ok: boolean;
+  status: number;
+  ms: number;
+  error?: string;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -115,6 +123,8 @@ export interface Project {
   soFailReason: string;
   /** when the project was finished (auto-set when status becomes "הושק") */
   doneDate: string;
+  /** last uptime check of the live site */
+  siteCheck?: SiteCheck;
   /** when the standing order started */
   soStart: string;
   /** history of standing-order runs */

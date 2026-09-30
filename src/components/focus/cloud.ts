@@ -253,6 +253,14 @@ export async function signIn(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   return error?.message ?? "";
 }
+export async function signInWithGoogle() {
+  const { lovable } = await import("@/integrations/lovable/index");
+  const result = await lovable.auth.signInWithOAuth("google", {
+    redirect_uri: window.location.origin,
+  });
+  if (result.error) return String(result.error);
+  return "";
+}
 export async function signUp(email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({
     email,

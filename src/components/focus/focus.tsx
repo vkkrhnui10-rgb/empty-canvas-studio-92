@@ -37,7 +37,7 @@ import {
 } from "./store";
 import type { Task } from "./types";
 import { Badge, Btn, Card, IconBtn, Input, Modal, Progress } from "./ui";
-import { fmtClock, fmtMin, todayStr } from "./utils";
+import { fmtClock, fmtMin, isOpen, todayStr } from "./utils";
 import { useNav } from "./nav";
 import { Checklist, StatusBadge } from "./tasks";
 
@@ -702,7 +702,7 @@ export function FloatingContent({
   onOpenApp?: () => void;
   inPip?: boolean;
 }) {
-  const { db, task, t } = useFlow();
+  const { db, task, planned, t } = useFlow();
   useTick(!!db.timer);
   const compact = db.settings.pipCompact;
   const p = task ? findProject(db, task.projectId) : undefined;
@@ -710,101 +710,210 @@ export function FloatingContent({
   const rem = t ? remainingSec(t) : db.settings.defaultFocusMin * 60;
   const frac = t ? Math.max(0, Math.min(1, rem / (t.plannedMin * 60))) : 1;
   const running = !!t && !t.pausedAt;
-  const color = isBreak ? C.violet : rem < 0 ? C.warn : C.primary;
+  const over = rem < 0;
+  const color = isBreak ? C.violet : over ? C.warn : C.primary;
   const mainLink = p?.adminUrl || p?.aiUrl || p?.url || task?.links[0];
+  const doneCount = planned.filter((x) => x.status === "done").length;
+  const idx = task ? planned.findIndex((x) => x.id === task.id) + 1 : 0;
+  const next = planned.find((x) => isOpen(x) && x.id !== task?.id);
+  const checkDone = task?.checklist.filter((c) => c.done).length ?? 0;
+
+  const status = !t
+    ? { label: "מוכן", dot: "var(--focus-muted)", pulse: false }
+    : isBreak
+      ? { label: "הפסקה", dot: C.violet, pulse: running }
+      : t.pausedAt
+        ? { label: "מושהה", dot: C.warn, pulse: false }
+        : over
+          ? { label: "זמן נוסף", dot: C.warn, pulse: true }
+          : { label: "בפוקוס", dot: "#3ddc97", pulse: true };
+
+  // ring around the play button
+  const R = 25;
+  const circ = 2 * Math.PI * R;
 
   return (
     <div
       dir="rtl"
       className={cn(
-        "focus-float focus-dark flex h-full flex-col text-[color:var(--focus-foreground)]",
-        inPip ? "p-3" : "p-3.5",
+        "focus-float focus-dark relative flex h-full flex-col overflow-hidden text-[color:var(--focus-foreground)]",
+        compact ? "px-3.5 py-3" : "p-4",
       )}
     >
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[11px] text-[color:var(--focus-muted)]">
-            {isBreak ? "הפסקה" : (p?.name ?? (task ? "ללא פרויקט" : "FOCUS"))}
-          </div>
-          <div
-            className={cn(
-              "font-semibold leading-snug",
-              compact ? "truncate text-sm" : "line-clamp-2 text-[15px]",
+      {/* ambient glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -top-16 -left-10 size-44 rounded-full opacity-40 blur-3xl transition-colors duration-700"
+        style={{ background: color }}
+      />
+
+      {/* header */}
+      <div className="relative flex shrink-0 items-center gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-semibold ring-1 ring-white/10">
+          <span className="relative flex size-1.5">
+            {status.pulse && (
+              <span
+                className="absolute inline-flex size-full animate-ping rounded-full opacity-70"
+                style={{ background: status.dot }}
+              />
             )}
+            <span
+              className="relative inline-flex size-1.5 rounded-full"
+              style={{ background: status.dot }}
+            />
+          </span>
+          {status.label}
+        </span>
+        <span className="min-w-0 flex-1 truncate text-[11.5px] text-[color:var(--focus-muted)]">
+          {isBreak ? "נושמים רגע" : (p?.name ?? (task ? "ללא פרויקט" : "FOCUS"))}
+          {!compact && planned.length > 0 && idx > 0 && ` · ${idx}/${planned.length}`}
+        </span>
+        <div className="flex items-center">
+          {onOpenApp && (
+            <FloatIcon label="פתח את המערכת" onClick={onOpenApp}>
+              <LayoutDashboard className="size-3.5" />
+            </FloatIcon>
+          )}
+          <FloatIcon
+            label={compact ? "הרחב" : "צמצם"}
+            onClick={() => actions.settings({ pipCompact: !compact })}
           >
-            {task?.title ?? "אין משימה פעילה"}
-          </div>
+            {compact ? <Maximize2 className="size-3.5" /> : <Minimize2 className="size-3.5" />}
+          </FloatIcon>
+          {onClose && (
+            <FloatIcon label="סגור פאנל" onClick={onClose}>
+              <X className="size-3.5" />
+            </FloatIcon>
+          )}
         </div>
-        <button
-          aria-label={compact ? "הרחב" : "צמצם"}
-          onClick={() => actions.settings({ pipCompact: !compact })}
-          className="rounded-lg p-1 text-[color:var(--focus-muted)] hover:bg-white/5 hover:text-white"
-        >
-          {compact ? <Maximize2 className="size-3.5" /> : <Minimize2 className="size-3.5" />}
-        </button>
-        {onClose && (
-          <button
-            aria-label="סגור פאנל"
-            onClick={onClose}
-            className="rounded-lg p-1 text-[color:var(--focus-muted)] hover:bg-white/5 hover:text-white"
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
       </div>
 
-      <div className="mt-2 flex items-center gap-3">
-        <div className="text-[30px] font-light leading-none tabular-nums" style={{ color }}>
-          {fmtClock(rem)}
-        </div>
-        <div className="flex-1">
-          <div className="h-1 overflow-hidden rounded-full bg-white/10">
-            <div
-              className="h-full rounded-full transition-[width] duration-1000"
-              style={{ width: `${frac * 100}%`, background: color }}
-            />
-          </div>
-        </div>
-        {task && (
+      {/* title */}
+      <div
+        className={cn(
+          "relative shrink-0 font-bold leading-snug",
+          compact ? "mt-1 truncate text-[14px]" : "mt-2 line-clamp-2 text-[16px]",
+        )}
+        title={task?.title}
+      >
+        {task?.title ?? (isBreak ? "הפסקה קצרה" : "אין משימה פעילה")}
+      </div>
+
+      {/* timer row */}
+      <div className={cn("relative flex shrink-0 items-center gap-3", compact ? "mt-1.5" : "mt-3")}>
+        {(task || isBreak) && (
           <button
-            aria-label={running ? "השהה" : "התחל"}
-            onClick={() => (t ? actions.togglePause() : actions.startFocus(task.id))}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full text-[color:var(--focus-primary-foreground)]"
-            style={{ background: color }}
+            aria-label={running ? "השהה" : t ? "המשך" : "התחל"}
+            onClick={() => (t ? actions.togglePause() : task && actions.startFocus(task.id))}
+            className="group relative flex size-[58px] shrink-0 items-center justify-center"
           >
-            {running ? (
-              <Pause className="size-4" fill="currentColor" />
-            ) : (
-              <Play className="size-4" fill="currentColor" />
-            )}
+            <svg width="58" height="58" className="absolute inset-0 -rotate-90">
+              <circle
+                cx="29"
+                cy="29"
+                r={R}
+                fill="none"
+                stroke="rgb(255 255 255 / .1)"
+                strokeWidth="3.5"
+              />
+              <circle
+                cx="29"
+                cy="29"
+                r={R}
+                fill="none"
+                stroke={color}
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                strokeDasharray={circ}
+                strokeDashoffset={circ * (1 - frac)}
+                style={{ transition: "stroke-dashoffset 1s linear, stroke .5s" }}
+              />
+            </svg>
+            <span
+              className="flex size-10 items-center justify-center rounded-full text-[color:var(--focus-primary-foreground)] shadow-lg transition-transform group-hover:scale-105 group-active:scale-95"
+              style={{
+                background: `linear-gradient(135deg, ${color}, var(--focus-violet))`,
+                boxShadow: `0 6px 18px -4px ${color}`,
+              }}
+            >
+              {running ? (
+                <Pause className="size-4" fill="currentColor" />
+              ) : (
+                <Play className="size-4 translate-x-[-1px]" fill="currentColor" />
+              )}
+            </span>
           </button>
         )}
+        <div className="min-w-0 flex-1">
+          <div
+            className="text-[34px] leading-none font-semibold tracking-tight tabular-nums"
+            style={{ color: over ? C.warn : undefined }}
+          >
+            {fmtClock(rem)}
+          </div>
+          {!compact && (
+            <div className="mt-1 text-[11px] text-[color:var(--focus-muted)]">
+              {!t
+                ? `בלוק של ${db.settings.defaultFocusMin} דק׳`
+                : isBreak
+                  ? "הפסקה"
+                  : over
+                    ? "עברת את הזמן — ממשיך למדוד"
+                    : `מתוך ${t.plannedMin} דק׳`}
+            </div>
+          )}
+        </div>
         {task && !isBreak && (
           <button
             aria-label="בוצע"
             onClick={() => actions.completeTask(task.id)}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--focus-primary)] text-[color:var(--focus-primary)] hover:bg-[var(--focus-primary)]/15"
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-bold text-[#0b0c3f] shadow-[0_6px_18px_-6px_rgb(255_255_255/.5)] transition-transform hover:scale-[1.03] active:scale-95"
           >
             <Check className="size-4" strokeWidth={3} />
+            בוצע
           </button>
         )}
         {isBreak && (
           <button
             onClick={actions.endBreak}
-            className="rounded-full border border-white/15 px-3 py-1.5 text-xs"
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-white px-4 text-[13px] font-bold text-[#0b0c3f]"
           >
+            <Play className="size-3.5" fill="currentColor" />
             חזרה
           </button>
         )}
       </div>
 
+      {/* expanded body */}
       {!compact && task && !isBreak && (
-        <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 border-t border-white/10 pt-3">
-          {task.desc && (
-            <p className="line-clamp-2 text-xs text-[color:var(--focus-muted)]">{task.desc}</p>
+        <div className="relative mt-3 flex min-h-0 flex-1 flex-col gap-2.5">
+          {planned.length > 0 && (
+            <div className="flex gap-1" aria-label={`${doneCount} מתוך ${planned.length} הושלמו`}>
+              {planned.map((x) => (
+                <span
+                  key={x.id}
+                  className="h-1 flex-1 rounded-full transition-colors"
+                  style={{
+                    background:
+                      x.status === "done"
+                        ? C.primary
+                        : x.id === task.id
+                          ? `color-mix(in oklab, ${C.primary} 45%, transparent)`
+                          : "rgb(255 255 255 / .1)",
+                  }}
+                />
+              ))}
+            </div>
           )}
+
           {task.checklist.length > 0 && (
-            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-xl bg-white/[0.04] p-2 ring-1 ring-white/[0.06]">
+              <div className="mb-1 flex items-center justify-between px-1 text-[10.5px] font-semibold text-[color:var(--focus-muted)]">
+                <span>צ׳קליסט</span>
+                <span className="tabular-nums">
+                  {checkDone}/{task.checklist.length}
+                </span>
+              </div>
               {task.checklist.map((c) => (
                 <button
                   key={c.id}
@@ -815,64 +924,114 @@ export function FloatingContent({
                       ),
                     })
                   }
-                  className="flex w-full items-center gap-2 text-right text-xs"
+                  className="flex w-full items-center gap-2 rounded-lg px-1 py-1 text-right text-[12.5px] hover:bg-white/5"
                 >
                   <span
                     className={cn(
-                      "flex size-3.5 shrink-0 items-center justify-center rounded border",
+                      "flex size-4 shrink-0 items-center justify-center rounded-[5px] border transition-colors",
                       c.done
                         ? "border-[color:var(--focus-primary)] bg-[var(--focus-primary)] text-[color:var(--focus-primary-foreground)]"
                         : "border-white/25",
                     )}
                   >
-                    {c.done && <Check className="size-2.5" strokeWidth={4} />}
+                    {c.done && <Check className="size-3" strokeWidth={3.5} />}
                   </span>
-                  <span className={cn(c.done && "text-[color:var(--focus-muted)] line-through")}>
+                  <span
+                    className={cn(
+                      "truncate",
+                      c.done && "text-[color:var(--focus-muted)] line-through",
+                    )}
+                  >
                     {c.txt}
                   </span>
                 </button>
               ))}
             </div>
           )}
-          <div className="mt-auto flex flex-wrap gap-1.5 pt-1">
-            <MiniBtn
+          {!task.checklist.length && task.desc && (
+            <p className="line-clamp-3 text-[12px] leading-relaxed text-[color:var(--focus-muted)]">
+              {task.desc}
+            </p>
+          )}
+
+          {next && (
+            <div className="flex items-center gap-2 text-[11.5px] text-[color:var(--focus-muted)]">
+              <SkipForward className="size-3 shrink-0" />
+              <span className="shrink-0">הבא:</span>
+              <span className="truncate text-[color:var(--focus-foreground)]/85">{next.title}</span>
+            </div>
+          )}
+
+          <div className="mt-auto grid grid-cols-4 gap-1 rounded-xl bg-white/[0.04] p-1 ring-1 ring-white/[0.06]">
+            <FloatAction icon={Coffee} label="הפסקה" onClick={actions.startBreak} />
+            <FloatAction
+              icon={SkipForward}
+              label="אחר כך"
+              onClick={() => actions.skipLater(task.id)}
+            />
+            <FloatAction
+              icon={UserX}
+              label="ממתין"
               onClick={() => actions.setFlowStatus(task.id, "waiting", {}, "הועבר להמתנה ללקוח")}
-            >
-              ממתין ללקוח
-            </MiniBtn>
-            <MiniBtn onClick={() => actions.skipLater(task.id)}>דלג</MiniBtn>
-            <MiniBtn onClick={actions.startBreak}>הפסקה</MiniBtn>
-            {mainLink && (
-              <a
-                href={mainLink}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg border border-white/12 px-2 py-1 text-[11px] text-[color:var(--focus-primary)] hover:bg-white/5"
-              >
-                קישור עבודה ↗
-              </a>
+            />
+            {mainLink ? (
+              <FloatAction
+                icon={ExternalLink}
+                label="לאתר"
+                onClick={() => window.open(mainLink, "_blank", "noopener")}
+              />
+            ) : (
+              <FloatAction icon={Plus} label="+5 דק׳" onClick={() => actions.extend(5)} />
             )}
-            {onOpenApp && <MiniBtn onClick={onOpenApp}>פתח מערכת</MiniBtn>}
           </div>
         </div>
       )}
       {!task && !isBreak && (
-        <div className="mt-2 text-xs text-[color:var(--focus-muted)]">
+        <div className="relative mt-2 text-[12px] text-[color:var(--focus-muted)]">
           {plannedTasks(db).length
-            ? "כל משימות היום הושלמו ✓"
+            ? "כל משימות היום הושלמו ✓ כל הכבוד"
             : `תכנן משימות להיום (${todayStr()})`}
         </div>
       )}
     </div>
   );
 }
-function MiniBtn({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+function FloatIcon({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="flex size-7 items-center justify-center rounded-lg text-[color:var(--focus-muted)] transition-colors hover:bg-white/10 hover:text-white"
+    >
+      {children}
+    </button>
+  );
+}
+function FloatAction({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+}) {
   return (
     <button
       onClick={onClick}
-      className="rounded-lg border border-white/12 px-2 py-1 text-[11px] text-[color:var(--focus-foreground)]/85 hover:bg-white/5"
+      className="flex flex-col items-center gap-0.5 rounded-lg py-1.5 text-[10.5px] font-medium text-[color:var(--focus-foreground)]/80 transition-colors hover:bg-white/10 hover:text-white"
     >
-      {children}
+      <Icon className="size-4" />
+      {label}
     </button>
   );
 }

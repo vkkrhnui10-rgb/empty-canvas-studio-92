@@ -2,7 +2,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { toast } from "sonner";
 import { FloatingContent } from "./focus";
-import { getState } from "./store";
+import { getState, useDB } from "./store";
 
 /* ============================================================
  * Floating focus panel.
@@ -74,7 +74,7 @@ export function useFloating(openApp: () => void) {
     }
     try {
       const compact = getState().settings.pipCompact;
-      const win = await api.requestWindow({ width: 360, height: compact ? 132 : 300 });
+      const win = await api.requestWindow({ width: 360, height: compact ? 140 : 300 });
       copyStyles(win.document);
       win.document.documentElement.dir = "rtl";
       win.document.documentElement.lang = "he";
@@ -110,7 +110,7 @@ export function useFloating(openApp: () => void) {
     const i = setInterval(() => {
       const w = pipRef.current?.win;
       if (!w) return;
-      const want = getState().settings.pipCompact ? 132 : 300;
+      const want = getState().settings.pipCompact ? 140 : 300;
       if (Math.abs(w.innerHeight - want) > 40) {
         try {
           w.resizeTo(w.outerWidth, want + (w.outerHeight - w.innerHeight));
@@ -140,6 +140,7 @@ export function InlineFloating({
       return { x: 24, y: 24 };
     }
   });
+  const compact = useDB().settings.pipCompact;
   const drag = React.useRef<{ sx: number; sy: number; x: number; y: number } | null>(null);
   const onDown = (e: React.PointerEvent) => {
     if ((e.target as HTMLElement).closest("button,a")) return;
@@ -167,8 +168,8 @@ export function InlineFloating({
       onPointerDown={onDown}
       onPointerMove={onMove}
       onPointerUp={onUp}
-      className="focus-float-shell fixed z-50 w-[360px] max-w-[calc(100vw-16px)] cursor-grab touch-none rounded-[16px] active:cursor-grabbing"
-      style={{ left: pos.x, bottom: pos.y }}
+      className="focus-float-shell fixed z-50 w-[360px] max-w-[calc(100vw-16px)] cursor-grab touch-none overflow-hidden rounded-[20px] active:cursor-grabbing"
+      style={{ left: pos.x, bottom: pos.y, height: compact ? 140 : 300 }}
     >
       <FloatingContent onClose={onClose} onOpenApp={onOpenApp} />
     </div>

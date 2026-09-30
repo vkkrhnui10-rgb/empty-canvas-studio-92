@@ -12,10 +12,13 @@ create table if not exists public.focus_state (
 
 alter table public.focus_state enable row level security;
 
+drop policy if exists "focus_state: read own" on public.focus_state;
 create policy "focus_state: read own" on public.focus_state
   for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "focus_state: insert own" on public.focus_state;
 create policy "focus_state: insert own" on public.focus_state
   for insert to authenticated with check (auth.uid() = user_id);
+drop policy if exists "focus_state: update own" on public.focus_state;
 create policy "focus_state: update own" on public.focus_state
   for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -33,11 +36,20 @@ create index if not exists grow_events_user_pending_idx
 
 alter table public.grow_events enable row level security;
 
+drop policy if exists "grow_events: read own" on public.grow_events;
 create policy "grow_events: read own" on public.grow_events
   for select to authenticated using (auth.uid() = user_id);
+drop policy if exists "grow_events: mark own processed" on public.grow_events;
 create policy "grow_events: mark own processed" on public.grow_events
   for update to authenticated using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- live updates between devices and for incoming Grow events
-alter publication supabase_realtime add table public.focus_state;
-alter publication supabase_realtime add table public.grow_events;
+do $$
+begin
+  if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='focus_state') then
+    alter publication supabase_realtime add table public.focus_state;
+  end if;
+  if not exists (select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='grow_events') then
+    alter publication supabase_realtime add table public.grow_events;
+  end if;
+end $$;

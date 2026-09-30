@@ -561,6 +561,12 @@ function hostOf(url: string): string {
 }
 /** hosts whose favicon failed to load — don't ask again this session */
 const badIcons = new Set<string>();
+/** icon sources tried in order: the site itself, DuckDuckGo, then Google (whose placeholder globe is 16px — rejected on load) */
+const iconSources = (host: string) => [
+  `https://${host}/favicon.ico`,
+  `https://icons.duckduckgo.com/ip3/${host}.ico`,
+  `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=${encodeURIComponent(`https://${host}`)}&size=64`,
+];
 
 /** client/project avatar — the site's favicon when it has one, otherwise initials on a tinted square */
 export function ProjectAvatar({
@@ -578,7 +584,18 @@ export function ProjectAvatar({
   const site = url ?? db.projects.find((p) => p.id === id)?.url ?? "";
   const host = hostOf(site);
   const [failed, setFailed] = React.useState(() => badIcons.has(host));
-  React.useEffect(() => setFailed(badIcons.has(host)), [host]);
+  const [src, setSrc] = React.useState(0);
+  React.useEffect(() => {
+    setFailed(badIcons.has(host));
+    setSrc(0);
+  }, [host]);
+  const next = () => {
+    if (src + 1 < iconSources(host).length) setSrc(src + 1);
+    else {
+      badIcons.add(host);
+      setFailed(true);
+    }
+  };
   const c = accentFor(id);
   const initials =
     name
@@ -605,15 +622,18 @@ export function ProjectAvatar({
     >
       {showIcon ? (
         <img
-          src={`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&url=${encodeURIComponent(`https://${host}`)}&size=64`}
+          key={`${host}-${src}`}
+          src={iconSources(host)[src]}
           alt=""
           loading="lazy"
           draggable={false}
           referrerPolicy="no-referrer"
           style={{ width: "62%", height: "62%", objectFit: "contain" }}
-          onError={() => {
-            badIcons.add(host);
-            setFailed(true);
+          onError={next}
+          onLoad={(e) => {
+            const w = e.currentTarget.naturalWidth;
+            // blank/1px replies, or Google's generic 16px globe, are not a real icon
+            if (w <= 1 || (src === 2 && w <= 16)) next();
           }}
         />
       ) : (

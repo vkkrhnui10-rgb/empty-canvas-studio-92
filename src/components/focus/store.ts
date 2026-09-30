@@ -1012,6 +1012,19 @@ export const actions = {
       log(d, id, "הוראת הקבע תקינה");
     });
   },
+  setPaymentReceipt(id: string, payId: string, receipted: boolean) {
+    update((d) => {
+      const p = findProject(d, id);
+      const x = p?.payments.find((y) => y.id === payId);
+      if (!p || !x) return;
+      x.receipted = receipted;
+      log(
+        d,
+        id,
+        receipted ? `הונפקה קבלה לתשלום ${x.amount} ₪` : `סומן: אין קבלה לתשלום ${x.amount} ₪`,
+      );
+    });
+  },
   setPaymentInvoiced(id: string, payId: string, invoiced: boolean) {
     update((d) => {
       const p = findProject(d, id);

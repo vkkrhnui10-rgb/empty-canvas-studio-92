@@ -56,6 +56,8 @@ export interface Payment {
   invoiceUrl?: string;
   /** an invoice was issued for this payment */
   invoiced?: boolean;
+  /** a receipt (קבלה) was issued for this payment */
+  receipted?: boolean;
 }
 
 /** one Grow webhook event as recorded in FOCUS */

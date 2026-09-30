@@ -1074,16 +1074,44 @@ function MoneyTab({ p }: { p: Project }) {
             מלא יתרה ({ils(bal)})
           </button>
         )}
+        {p.payments.some((x) => !(x.invoiced || x.invoiceUrl)) && (
+          <div className="mt-3 text-xs text-[color:var(--focus-warning)]">
+            {p.payments.filter((x) => !(x.invoiced || x.invoiceUrl)).length} תשלומים בלי חשבונית —
+            לחץ על התג כדי לסמן שהונפקה.
+          </div>
+        )}
         <div className="mt-4 space-y-1.5">
           {p.payments.map((x) => (
             <div
               key={x.id}
               className="flex items-center justify-between rounded-xl bg-[var(--focus-bg2)] px-3 py-2 text-sm"
             >
-              <span>
+              <span className="min-w-0 flex-1">
                 {fmtDate(x.date)}
                 {x.note && ` · ${x.note}`}
               </span>
+              <button
+                onClick={() => actions.setPaymentInvoiced(p.id, x.id, !(x.invoiced || x.invoiceUrl))}
+                className={cn(
+                  "mx-2 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                  x.invoiced || x.invoiceUrl
+                    ? "bg-[color:color-mix(in_oklab,var(--focus-success)_14%,transparent)] text-[color:var(--focus-success)]"
+                    : "bg-[color:color-mix(in_oklab,var(--focus-warning)_16%,transparent)] text-[color:var(--focus-warning)]",
+                )}
+                title="לחץ לשינוי"
+              >
+                {x.invoiced || x.invoiceUrl ? "חשבונית ✓" : "ללא חשבונית"}
+              </button>
+              {x.invoiceUrl && (
+                <a
+                  href={x.invoiceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="ml-2 text-xs font-semibold text-[color:var(--focus-primary)] hover:underline"
+                >
+                  פתח
+                </a>
+              )}
               <span className="font-semibold tabular-nums text-[color:var(--focus-success)]">
                 {ils(x.amount)}
               </span>

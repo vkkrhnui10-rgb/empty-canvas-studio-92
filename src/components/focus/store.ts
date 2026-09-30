@@ -888,6 +888,15 @@ export const actions = {
       log(d, id, "הוראת הקבע תקינה");
     });
   },
+  setPaymentInvoiced(id: string, payId: string, invoiced: boolean) {
+    update((d) => {
+      const p = findProject(d, id);
+      const x = p?.payments.find((y) => y.id === payId);
+      if (!p || !x) return;
+      x.invoiced = invoiced;
+      log(d, id, invoiced ? `הונפקה חשבונית לתשלום ${x.amount} ₪` : `סומן: אין חשבונית לתשלום ${x.amount} ₪`);
+    });
+  },
   recordPayment(id: string, amount: number, note = "") {
     undoable(`נרשם תשלום`, () =>
       update((d) => {

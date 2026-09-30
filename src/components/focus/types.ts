@@ -54,6 +54,8 @@ export interface Payment {
   note: string;
   txCode?: string;
   invoiceUrl?: string;
+  /** an invoice was issued for this payment */
+  invoiced?: boolean;
 }
 
 /** one Grow webhook event as recorded in FOCUS */

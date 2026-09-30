@@ -211,7 +211,7 @@ export function FocusView() {
               <Progress value={(done / planned.length) * 100} />
             </div>
           )}
-          <div className="text-xs font-medium tracking-[0.2em] text-[color:var(--focus-primary)]">
+          <div className="text-sm font-semibold text-[color:var(--focus-primary)]">
             {isBreak ? "הפסקה" : "עכשיו בפוקוס"}
           </div>
           <h1 className="mt-2 text-balance text-2xl font-bold leading-tight sm:text-4xl">

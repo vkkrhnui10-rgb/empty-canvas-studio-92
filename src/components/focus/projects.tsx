@@ -58,6 +58,7 @@ import {
   Segmented,
   Select,
   Textarea,
+  ProjectAvatar,
 } from "./ui";
 import { balanceOf, daysSince, fmtDate, ils, isOpen, payState, uid } from "./utils";
 import { useNav } from "./nav";
@@ -189,11 +190,24 @@ export function ProjectsView() {
           ))}
         </div>
       ) : (
-        <div className="space-y-1.5">
-          {list.map((p) => (
-            <ProjectRow key={p.id} p={p} />
-          ))}
-        </div>
+        <Card className="overflow-x-auto p-0">
+          <table className="w-full min-w-[820px] text-right text-[15px]">
+            <thead>
+              <tr className="focus-table-head border-b border-[color:var(--focus-border)]">
+                {["פרויקט", "סטטוס", "מצב האתר", "פתוחות", "יתרה", "הוראת קבע"].map((h) => (
+                  <th key={h} className="px-5 py-4 font-bold">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[color:var(--focus-border)]">
+              {list.map((p) => (
+                <ProjectRow key={p.id} p={p} />
+              ))}
+            </tbody>
+          </table>
+        </Card>
       )}
     </div>
   );
@@ -211,15 +225,15 @@ export function ProjectCard({ p, compact }: { p: Project; compact?: boolean }) {
   const accent = accentFor(p.id);
   const pinned = p.notes.find((n) => n.pinned);
   return (
-    <Card onClick={() => nav.go("project", p.id)} className="relative overflow-hidden p-4">
-      <span className="absolute inset-y-0 right-0 w-1" style={{ background: accent }} />
-      <div className="flex items-start justify-between gap-2 pr-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 font-semibold">
+    <Card onClick={() => nav.go("project", p.id)} className="p-5">
+      <div className="flex items-start gap-3">
+        <ProjectAvatar id={p.id} name={p.name} size={compact ? 34 : 42} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 text-[16px] font-bold">
             <span className="truncate">{p.name}</span>
             {pinned && <Pin className="size-3 shrink-0 text-[color:var(--focus-primary)]" />}
           </div>
-          <div className="mt-0.5 truncate text-xs text-[color:var(--focus-muted)]">
+          <div className="mt-0.5 truncate text-[13px] text-[color:var(--focus-muted)]">
             {p.client || "—"} · {p.siteType}
             {cp && ` · ${cp.name}`}
           </div>
@@ -228,7 +242,7 @@ export function ProjectCard({ p, compact }: { p: Project; compact?: boolean }) {
       </div>
       {!compact && (
         <>
-          <div className="mt-3 truncate pr-2 text-sm">
+          <div className="mt-4 truncate rounded-lg bg-[var(--focus-bg2)] px-3 py-2 text-[14px]">
             <span className="text-[color:var(--focus-muted)]">הבא: </span>
             {next ? (
               next.title
@@ -236,7 +250,7 @@ export function ProjectCard({ p, compact }: { p: Project; compact?: boolean }) {
               <span className="text-[color:var(--focus-warning)]">אין משימה הבאה</span>
             )}
           </div>
-          <div className="mt-3 flex flex-wrap gap-1.5 pr-2">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             <Badge>{p.status}</Badge>
             <Badge>{open.length} פתוחות</Badge>
             {bal > 0 && <Badge color={C.warn}>יתרה {ils(bal)}</Badge>}
@@ -247,7 +261,12 @@ export function ProjectCard({ p, compact }: { p: Project; compact?: boolean }) {
             )}
           </div>
           {all.length > 0 && (
-            <Progress className="mr-2 mt-3" value={(done / all.length) * 100} color={accent} />
+            <div className="mt-4 flex items-center gap-3 text-[12px] text-[color:var(--focus-muted)]">
+              <Progress className="flex-1" value={(done / all.length) * 100} color={accent} />
+              <span className="tabular-nums">
+                {done}/{all.length}
+              </span>
+            </div>
           )}
         </>
       )}
@@ -261,25 +280,40 @@ function ProjectRow({ p }: { p: Project }) {
   const open = db.tasks.filter((t) => t.projectId === p.id && isOpen(t)).length;
   const bal = balanceOf(p);
   return (
-    <button
+    <tr
       onClick={() => nav.go("project", p.id)}
-      className="relative flex w-full flex-wrap items-center gap-x-4 gap-y-1 overflow-hidden rounded-2xl bg-[var(--focus-bg2)] px-4 py-3 text-right text-sm transition-colors hover:bg-[var(--focus-card-hi)]"
+      className="cursor-pointer transition-colors hover:bg-[var(--focus-bg2)]"
     >
-      <span className="absolute inset-y-0 right-0 w-1" style={{ background: accentFor(p.id) }} />
-      <span className="min-w-36 flex-1 truncate font-medium">{p.name}</span>
-      <span className="w-28 truncate text-[color:var(--focus-muted)]">{p.client}</span>
-      <span className="w-24 text-[color:var(--focus-muted)]">{p.status}</span>
-      <span className="w-24" style={{ color: siteColor(p.siteState) }}>
-        {p.siteState}
-      </span>
-      <span className="w-20 text-[color:var(--focus-muted)]">{open} פתוחות</span>
-      <span className="w-24 tabular-nums" style={{ color: bal ? C.warn : C.sub }}>
+      <td className="px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <ProjectAvatar id={p.id} name={p.name} size={36} />
+          <div className="min-w-0">
+            <div className="truncate font-semibold">{p.name}</div>
+            <div className="truncate text-[13px] text-[color:var(--focus-muted)]">{p.client}</div>
+          </div>
+        </div>
+      </td>
+      <td className="px-5 py-3.5">
+        <Badge color={C.primary}>{p.status}</Badge>
+      </td>
+      <td className="px-5 py-3.5">
+        <Badge color={siteColor(p.siteState)}>{p.siteState}</Badge>
+      </td>
+      <td className="px-5 py-3.5 tabular-nums">{open}</td>
+      <td
+        className="px-5 py-3.5 font-semibold tabular-nums"
+        style={{ color: bal ? C.warn : C.sub }}
+      >
         {bal ? ils(bal) : "—"}
-      </span>
-      <span className="w-28" style={{ color: p.hosted ? soColor(p.soState) : C.sub }}>
-        {p.hosted ? SO_STATES[p.soState] : "לא מאוחסן"}
-      </span>
-    </button>
+      </td>
+      <td className="px-5 py-3.5">
+        {p.hosted ? (
+          <Badge color={soColor(p.soState)}>{SO_STATES[p.soState]}</Badge>
+        ) : (
+          <span className="text-[color:var(--focus-muted)]">לא מאוחסן</span>
+        )}
+      </td>
+    </tr>
   );
 }
 
@@ -570,39 +604,38 @@ export function ProjectPage({ id }: { id: string }) {
       </button>
 
       <Card hi className="relative mb-4 overflow-hidden p-5 sm:p-6">
-        <span
-          className="absolute inset-y-0 right-0 w-1.5"
-          style={{ background: accentFor(p.id) }}
-        />
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-bold">{p.name}</h1>
-            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[color:var(--focus-muted)]">
-              {p.client && <span>{p.client}</span>}
-              {p.phone && (
-                <a
-                  href={`tel:${p.phone}`}
-                  className="inline-flex items-center gap-1 hover:text-white"
-                  dir="ltr"
-                >
-                  <Phone className="size-3.5" />
-                  {p.phone}
-                </a>
-              )}
-              {p.email && (
-                <a
-                  href={`mailto:${p.email}`}
-                  className="inline-flex items-center gap-1 hover:text-white"
-                >
-                  <Mail className="size-3.5" />
-                  {p.email}
-                </a>
-              )}
-            </div>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              <Badge>{p.siteType}</Badge>
-              <Badge color={C.violet}>{p.status}</Badge>
-              <Badge color={siteColor(p.siteState)}>{p.siteState}</Badge>
+          <div className="flex min-w-0 items-start gap-4">
+            <ProjectAvatar id={p.id} name={p.name} size={56} />
+            <div className="min-w-0">
+              <h1 className="text-[26px] leading-tight font-bold">{p.name}</h1>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[color:var(--focus-muted)]">
+                {p.client && <span>{p.client}</span>}
+                {p.phone && (
+                  <a
+                    href={`tel:${p.phone}`}
+                    className="inline-flex items-center gap-1 hover:text-[color:var(--focus-primary)]"
+                    dir="ltr"
+                  >
+                    <Phone className="size-3.5" />
+                    {p.phone}
+                  </a>
+                )}
+                {p.email && (
+                  <a
+                    href={`mailto:${p.email}`}
+                    className="inline-flex items-center gap-1 hover:text-[color:var(--focus-primary)]"
+                  >
+                    <Mail className="size-3.5" />
+                    {p.email}
+                  </a>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                <Badge>{p.siteType}</Badge>
+                <Badge color={C.violet}>{p.status}</Badge>
+                <Badge color={siteColor(p.siteState)}>{p.siteState}</Badge>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -648,7 +681,7 @@ export function ProjectPage({ id }: { id: string }) {
       </Card>
 
       <Tabs value={tab} onValueChange={setTab} dir="rtl">
-        <TabsList className="mb-4 h-auto w-full flex-wrap justify-start gap-1 rounded-2xl bg-[var(--focus-bg2)] p-1">
+        <TabsList className="mb-6 h-auto w-full flex-wrap justify-start gap-0 rounded-none border-b border-[color:var(--focus-border)] bg-transparent p-0">
           {[
             ["overview", "סקירה"],
             ["tasks", `משימות (${open.length})`],
@@ -665,7 +698,7 @@ export function ProjectPage({ id }: { id: string }) {
             <TabsTrigger
               key={v}
               value={v}
-              className="rounded-xl px-3 py-1.5 text-[color:var(--focus-muted)] data-[state=active]:bg-[var(--focus-card-hi)] data-[state=active]:text-[color:var(--focus-foreground)]"
+              className="-mb-px flex-none rounded-none border-0 border-b-[3px] border-transparent bg-transparent px-4 py-3 text-[15px] text-[color:var(--focus-muted)] shadow-none hover:text-[color:var(--focus-foreground)] data-[state=active]:border-[color:var(--focus-navy)] data-[state=active]:bg-transparent data-[state=active]:font-bold data-[state=active]:text-[color:var(--focus-foreground)] data-[state=active]:shadow-none"
             >
               {l}
             </TabsTrigger>

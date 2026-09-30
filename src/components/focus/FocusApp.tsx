@@ -96,7 +96,7 @@ export default function FocusApp() {
         {hydrated ? <Shell /> : <Splash />}
         <Toaster
           dir="rtl"
-          position="top-center"
+          position="bottom-center"
           theme="light"
           toastOptions={{
             classNames: { toast: "focus-toast", actionButton: "focus-toast-action" },

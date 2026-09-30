@@ -29,6 +29,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
+import { accentFor } from "./constants";
 
 /* FOCUS primitives — thin, themed wrappers over the project's shadcn/ui components. */
 
@@ -486,5 +487,43 @@ export function LinkAction({
       {children}
       <span aria-hidden>‹</span>
     </button>
+  );
+}
+
+/** client/project avatar — initials on a tinted square */
+export function ProjectAvatar({
+  id,
+  name,
+  size = 40,
+}: {
+  id: string;
+  name: string;
+  size?: number;
+}) {
+  const c = accentFor(id);
+  const initials =
+    name
+      .replace(/[^\p{L}\p{N}\s]/gu, "")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0])
+      .join("")
+      .toUpperCase() || "?";
+  return (
+    <span
+      aria-hidden
+      className="inline-flex shrink-0 items-center justify-center rounded-[10px] font-bold"
+      style={{
+        width: size,
+        height: size,
+        fontSize: Math.round(size * 0.38),
+        color: c,
+        background: `color-mix(in oklab, ${c} 13%, var(--focus-card))`,
+        boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${c} 22%, transparent)`,
+      }}
+    >
+      {initials}
+    </span>
   );
 }

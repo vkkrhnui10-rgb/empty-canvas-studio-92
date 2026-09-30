@@ -19,7 +19,16 @@ import {
 } from "lucide-react";
 import { C, CLOSED_PROJECT, PRIORITIES, PRIO_COLOR, SITE_BAD, accentFor } from "./constants";
 import { actions, activeTask, computeAlerts, findProject, plannedTasks, useDB } from "./store";
-import { Badge, Btn, Card, EmptyState, LinkAction, Progress, SectionTitle } from "./ui";
+import {
+  Badge,
+  Btn,
+  Card,
+  EmptyState,
+  LinkAction,
+  Progress,
+  ProjectAvatar,
+  SectionTitle,
+} from "./ui";
 import { balanceOf, fmtMin, greeting, ils, isOpen, todayStr } from "./utils";
 import { useNav } from "./nav";
 import { TaskRow } from "./tasks";
@@ -353,14 +362,13 @@ export function Dashboard() {
                       >
                         <td className="py-3.5 pl-3">
                           <div className="flex items-center gap-2 font-semibold">
-                            <span
-                              className="size-2.5 shrink-0 rounded-full"
-                              style={{ background: accentFor(p.id) }}
-                            />
-                            <span className="truncate">{p.name}</span>
-                          </div>
-                          <div className="mr-4.5 text-[13px] text-[color:var(--focus-muted)]">
-                            {p.client}
+                            <ProjectAvatar id={p.id} name={p.name} size={34} />
+                            <div className="min-w-0">
+                              <div className="truncate">{p.name}</div>
+                              <div className="text-[13px] font-normal text-[color:var(--focus-muted)]">
+                                {p.client}
+                              </div>
+                            </div>
                           </div>
                         </td>
                         <td className="py-3.5 pl-3">

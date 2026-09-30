@@ -619,6 +619,51 @@ export function projectSO(db: DB, p: Project): SOStats {
   };
 }
 
+export interface SOEntry {
+  id: string;
+  date: string;
+  ok: boolean;
+  sum: number;
+  net: number;
+  who: string;
+  projectId: string;
+}
+/** every standing-order run we know of (contacts' runs + project-only runs), for the by-month report */
+export function allSORuns(db: DB): SOEntry[] {
+  const out: SOEntry[] = [];
+  const byProject = new Map<string, Set<string>>();
+  for (const c of db.soContacts) {
+    const set = byProject.get(c.projectId) ?? new Set<string>();
+    for (const r of c.runs) {
+      out.push({
+        id: r.id,
+        date: r.date,
+        ok: r.ok,
+        sum: r.sum,
+        net: r.net ?? r.sum,
+        who: c.name || c.email || c.phone,
+        projectId: c.projectId,
+      });
+      set.add(`${r.date}|${r.sum}`);
+    }
+    byProject.set(c.projectId, set);
+  }
+  for (const p of db.projects)
+    for (const r of p.soRuns || []) {
+      if (byProject.get(p.id)?.has(`${r.date}|${r.sum}`)) continue;
+      out.push({
+        id: r.id,
+        date: r.date,
+        ok: r.ok,
+        sum: r.sum,
+        net: r.net ?? r.sum,
+        who: p.client || p.name,
+        projectId: p.id,
+      });
+    }
+  return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+
 /** what a Grow event means for a project — mutates the draft, returns a short summary */
 function applyGrowToProject(d: DB, p: Project, e: GrowEntry, day: string) {
   const date = day || todayStr();

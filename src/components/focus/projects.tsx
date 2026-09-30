@@ -1623,8 +1623,15 @@ function SoRuns({ p }: { p: Project }) {
         </p>
       ) : (
         <ul className="max-h-56 divide-y divide-[color:var(--focus-border)] overflow-auto text-sm">
-          {so.runs.map((r) => (
-            <li key={r.id} className="flex items-center gap-2 py-1.5">
+          {so.runs.map((r, i) => (
+            <li key={r.id} className="flex flex-wrap items-center gap-2 py-1.5">
+              {(i === 0 || so.runs[i - 1].date.slice(0, 7) !== r.date.slice(0, 7)) && (
+                <div className="w-full pt-1 text-xs font-bold text-[color:var(--focus-primary)]">
+                  {monthLabel(r.date)} ·{" "}
+                  {so.runs.filter((x) => x.ok && x.date.slice(0, 7) === r.date.slice(0, 7)).length}{" "}
+                  ריצות
+                </div>
+              )}
               <span
                 className="size-2 shrink-0 rounded-full"
                 style={{ background: r.ok ? C.ok : C.bad }}
@@ -1749,3 +1756,19 @@ function SiteCard({ p }: { p: Project }) {
     </Card>
   );
 }
+
+const HEB_MONTHS = [
+  "ינואר",
+  "פברואר",
+  "מרץ",
+  "אפריל",
+  "מאי",
+  "יוני",
+  "יולי",
+  "אוגוסט",
+  "ספטמבר",
+  "אוקטובר",
+  "נובמבר",
+  "דצמבר",
+];
+const monthLabel = (d: string) => `${HEB_MONTHS[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;

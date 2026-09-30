@@ -16,9 +16,9 @@ import {
 import { toast } from "sonner";
 import { C } from "./constants";
 import { WEBHOOK_BASE, signOut, syncNow, useCloud } from "./cloud";
-import { actions, projectSO, replaceFromRemote, useDB } from "./store";
+import { actions, allSORuns, projectSO, replaceFromRemote, useDB } from "./store";
 import type { GrowEntry, SOContact } from "./types";
-import { Badge, Btn, Card, EmptyState, Modal, ProjectAvatar, Select } from "./ui";
+import { Badge, Btn, Card, EmptyState, ProjectAvatar, Segmented, Select } from "./ui";
 import { parseGrowReport } from "./growreport";
 import { readSheet } from "./xlsx";
 import { useNav } from "./nav";
@@ -320,6 +320,7 @@ export function SoContactsTab() {
   const ref = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
   const [q, setQ] = React.useState("");
+  const [view, setView] = React.useState<"contacts" | "months">("months");
 
   const onFile = async (f: File) => {
     setBusy(true);
@@ -419,7 +420,20 @@ export function SoContactsTab() {
         )}
       </Card>
 
-      {all.length === 0 ? (
+      {all.length > 0 && (
+        <Segmented
+          value={view}
+          onChange={setView}
+          options={[
+            { value: "months", label: "לפי שנים וחודשים" },
+            { value: "contacts", label: "לפי אנשי קשר" },
+          ]}
+        />
+      )}
+
+      {all.length > 0 && view === "months" ? (
+        <SoMonths />
+      ) : all.length === 0 ? (
         <Card>
           <EmptyState
             icon={FileSpreadsheet}
@@ -510,6 +524,129 @@ function ContactRow({ c, s }: { c: SOContact; s: ReturnType<typeof cStats> }) {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------ by year / month ------------------------------ */
+const MONTHS = [
+  "ינואר",
+  "פברואר",
+  "מרץ",
+  "אפריל",
+  "מאי",
+  "יוני",
+  "יולי",
+  "אוגוסט",
+  "ספטמבר",
+  "אוקטובר",
+  "נובמבר",
+  "דצמבר",
+];
+
+export function SoMonths() {
+  const db = useDB();
+  const entries = allSORuns(db);
+  const [openM, setOpenM] = React.useState<Record<string, boolean>>({});
+  const years = new Map<string, Map<string, typeof entries>>();
+  for (const e of entries) {
+    const y = e.date.slice(0, 4);
+    const m = e.date.slice(0, 7);
+    const ym = years.get(y) ?? new Map();
+    ym.set(m, [...(ym.get(m) ?? []), e]);
+    years.set(y, ym);
+  }
+  const sum = (l: typeof entries) => {
+    const ok = l.filter((e) => e.ok);
+    return {
+      n: ok.length,
+      bad: l.length - ok.length,
+      gross: ok.reduce((s, e) => s + e.sum, 0),
+      net: ok.reduce((s, e) => s + e.net, 0),
+    };
+  };
+  const projName = (id: string) => db.projects.find((p) => p.id === id)?.name;
+  return (
+    <div className="space-y-4">
+      {[...years.entries()]
+        .sort((a, b) => b[0].localeCompare(a[0]))
+        .map(([y, months]) => {
+          const t = sum([...months.values()].flat());
+          return (
+            <Card key={y} className="overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-2 bg-[var(--focus-bg2)] px-4 py-3">
+                <div className="text-lg font-bold">{y}</div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <span>
+                    <b>{t.n}</b> ריצות
+                  </span>
+                  <span>
+                    ברוטו <b className="tabular-nums">{ils(t.gross)}</b>
+                  </span>
+                  <span>
+                    נטו{" "}
+                    <b className="tabular-nums text-[color:var(--focus-success)]">{ils(t.net)}</b>
+                  </span>
+                </div>
+              </div>
+              <div className="divide-y divide-[color:var(--focus-border)]">
+                {[...months.entries()]
+                  .sort((a, b) => b[0].localeCompare(a[0]))
+                  .map(([m, list]) => {
+                    const s = sum(list);
+                    const open = !!openM[m];
+                    return (
+                      <div key={m}>
+                        <button
+                          onClick={() => setOpenM((o) => ({ ...o, [m]: !o[m] }))}
+                          className="flex w-full flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 text-right text-sm hover:bg-[var(--focus-bg2)]"
+                        >
+                          <span className="w-20 font-semibold">
+                            {MONTHS[Number(m.slice(5)) - 1]}
+                          </span>
+                          <span className="text-[color:var(--focus-muted)]">{s.n} ריצות</span>
+                          {s.bad > 0 && <Badge color={C.bad}>{s.bad} נכשלו</Badge>}
+                          <span className="ms-auto tabular-nums text-[color:var(--focus-muted)]">
+                            ברוטו {ils(s.gross)}
+                          </span>
+                          <span className="font-bold tabular-nums">נטו {ils(s.net)}</span>
+                          <span className="text-[color:var(--focus-muted)]">
+                            {open ? "▴" : "▾"}
+                          </span>
+                        </button>
+                        {open && (
+                          <ul className="divide-y divide-[color:var(--focus-border)] bg-[var(--focus-bg2)]/50 px-4">
+                            {list.map((e) => (
+                              <li key={e.id} className="flex items-center gap-2 py-2 text-sm">
+                                <span
+                                  className="size-2 shrink-0 rounded-full"
+                                  style={{ background: e.ok ? C.ok : C.bad }}
+                                />
+                                <span className="w-20 tabular-nums">{fmtDate(e.date)}</span>
+                                <span className="min-w-0 flex-1 truncate">
+                                  {e.who}
+                                  {projName(e.projectId) && (
+                                    <span className="text-xs text-[color:var(--focus-muted)]">
+                                      {" "}
+                                      · {projName(e.projectId)}
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="tabular-nums">{ils(e.sum)}</span>
+                                <span className="w-20 text-end text-xs tabular-nums text-[color:var(--focus-muted)]">
+                                  נטו {ils(e.net)}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            </Card>
+          );
+        })}
     </div>
   );
 }

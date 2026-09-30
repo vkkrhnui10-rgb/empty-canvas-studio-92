@@ -38,7 +38,7 @@ import { C, DEFAULT_SO_MSG, PRIORITIES, STATUSES } from "./constants";
 import { actions, activeTask, getState, newProject, useDB } from "./store";
 import { Btn, Card, Field, Input, Kbd, Modal, PageHeader, Textarea } from "./ui";
 import { soMessage } from "./billing";
-import { AccountCard, GrowConnectCard, GrowImportCard } from "./growui";
+import { AccountCard, GrowConnectCard } from "./growui";
 import { download, todayStr } from "./utils";
 import { useNav } from "./nav";
 import { pipSupported } from "./floating";
@@ -169,7 +169,6 @@ export function SettingsView() {
 
       <AccountCard />
       <GrowConnectCard />
-      <GrowImportCard />
       <BillingMsgCard />
 
       <Card className="space-y-3 p-5">

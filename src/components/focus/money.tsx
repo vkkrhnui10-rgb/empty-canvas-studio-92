@@ -44,13 +44,13 @@ import {
 import { balanceOf, ils, payState, uid } from "./utils";
 import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
-import { GrowTab } from "./growui";
+import { GrowTab, SoContactsTab } from "./growui";
 
 /* ============================ Finances ============================ */
 export function FinancesView() {
   const db = useDB();
   const nav = useNav();
-  const [tab, setTab] = React.useState<"collect" | "hosting" | "grow">("collect");
+  const [tab, setTab] = React.useState<"collect" | "hosting" | "grow" | "contacts">("collect");
   const growOpen = db.growLog.filter((g) => !g.projectId && g.kind !== "invoice").length;
   const P = db.projects;
   const totBuild = P.reduce((s, p) => s + (p.buildPrice || 0), 0);
@@ -114,11 +114,14 @@ export function FinancesView() {
           options={[
             { value: "collect", label: `גבייה (${debtors.length})` },
             { value: "hosting", label: `אחסון והוראות קבע (${hostList.length})` },
+            { value: "contacts", label: `הוראות קבע · אנשי קשר (${db.soContacts.length})` },
             { value: "grow", label: growOpen ? `Grow · ${growOpen} לשיוך` : "Grow" },
           ]}
         />
       </div>
-      {tab === "grow" ? (
+      {tab === "contacts" ? (
+        <SoContactsTab />
+      ) : tab === "grow" ? (
         <GrowTab />
       ) : tab === "collect" ? (
         debtors.length === 0 ? (

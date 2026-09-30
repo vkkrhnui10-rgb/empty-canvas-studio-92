@@ -82,6 +82,21 @@ export interface SORun {
   sum: number;
   note: string;
   txCode?: string;
+  /** amount transferred to you after fees (from the Grow report) */
+  net?: number;
+  desc?: string;
+}
+
+/** a payer on a Grow standing order — may differ from the project's own contact */
+export interface SOContact {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  note: string;
+  projectId: string;
+  runs: SORun[];
+  created: number;
 }
 
 export interface SiteCheck {
@@ -220,8 +235,7 @@ export interface DB {
   cpanels: Cpanel[];
   leads: Lead[];
   growLog: GrowEntry[];
-  /** people (normalized phone / email) whose Grow report rows are skipped on import */
-  growIgnore: string[];
+  soContacts: SOContact[];
   plan: { date: string; ids: string[]; closed: boolean };
   timer: TimerState | null;
   sessions: Session[];

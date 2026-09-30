@@ -8,6 +8,7 @@ import type {
   DB,
   GrowEntry,
   SORun,
+  SOContact,
   Lead,
   LeadNote,
   LeadStage,
@@ -78,7 +79,7 @@ const emptyDB = (): DB => ({
   cpanels: [],
   leads: [],
   growLog: [],
-  growIgnore: [],
+  soContacts: [],
   plan: { date: todayStr(), ids: [], closed: false },
   timer: null,
   sessions: [],
@@ -230,7 +231,7 @@ function migrate(raw: any): DB {
     sessions: (raw.sessions || []).map((s: { projectId?: string }) => ({ projectId: "", ...s })),
     activity: raw.activity || [],
     growLog: raw.growLog || [],
-    growIgnore: Array.isArray(raw.growIgnore) ? raw.growIgnore : [],
+    soContacts: Array.isArray(raw.soContacts) ? raw.soContacts : [],
   };
   if (db.timer && !("mode" in db.timer)) db.timer = { ...(db.timer as TimerState), mode: "work" };
   return rollDay(db);
@@ -553,24 +554,69 @@ function addRun(p: Project, r: Omit<SORun, "id">) {
   p.soRuns.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-/** what identifies a report row's person: normalized phone and/or email */
-function ignoreKeys(r: ReportRow): string[] {
-  const ph = normPhone(r.phone);
-  return [ph.length >= 9 ? ph : "", r.email.trim().toLowerCase()].filter(Boolean);
+/** link unlinked contacts to the project with the same phone / email; keeps project dates in sync */
+function autoLink(d: DB): number {
+  let n = 0;
+  for (const c of d.soContacts) {
+    if (c.projectId) continue;
+    const p = d.projects.find((x) => samePerson(x, c));
+    if (!p) continue;
+    c.projectId = p.id;
+    syncProjectFromContacts(d, p);
+    log(d, p.id, `הוראת קבע קושרה לאיש הקשר ${c.name || c.phone}`);
+    n++;
+  }
+  return n;
 }
 
-/** one successful run from a report; false when that transaction is already recorded */
-function importRun(p: Project, r: ReportRow): boolean {
-  const before = (p.soRuns || []).length;
-  addRun(p, { date: r.date, ok: true, sum: r.sum, note: "", txCode: r.key });
-  if ((p.soRuns || []).length === before) return false;
-  if (!p.soStart || r.date < p.soStart) p.soStart = r.date;
-  if (!p.soLastCharge || r.date > p.soLastCharge) p.soLastCharge = r.date;
-  if (["none", "check"].includes(p.soState) && daysSince(r.date) <= 40) {
+/** a project's standing-order start / last charge follow the runs of its linked contacts */
+function syncProjectFromContacts(d: DB, p: Project) {
+  const runs = d.soContacts
+    .filter((c) => c.projectId === p.id)
+    .flatMap((c) => c.runs.filter((r) => r.ok));
+  if (!runs.length) return;
+  const dates = runs.map((r) => r.date).sort();
+  if (!p.soStart || dates[0] < p.soStart) p.soStart = dates[0];
+  const last = dates[dates.length - 1];
+  if (!p.soLastCharge || last > p.soLastCharge) p.soLastCharge = last;
+  if (["none", "check"].includes(p.soState) && daysSince(last) <= 40) {
     p.soState = "ok";
     p.soChecked = todayStr();
   }
-  return true;
+}
+
+export interface SOStats {
+  runs: SORun[];
+  ok: number;
+  bad: number;
+  gross: number;
+  net: number;
+  first: string;
+  last: string;
+  contacts: SOContact[];
+}
+/** everything known about a project's standing order: its own runs + its linked contacts' runs */
+export function projectSO(db: DB, p: Project): SOStats {
+  const contacts = db.soContacts.filter((c) => c.projectId === p.id);
+  const seen = new Map<string, SORun>();
+  for (const r of [...contacts.flatMap((c) => c.runs), ...(p.soRuns || [])]) {
+    const k = `${r.date}|${r.ok ? 1 : 0}|${r.sum}`;
+    const prev = seen.get(k);
+    if (!prev || (prev.net === undefined && r.net !== undefined)) seen.set(k, r);
+  }
+  const runs = [...seen.values()].sort((a, b) => b.date.localeCompare(a.date));
+  const good = runs.filter((r) => r.ok);
+  const dates = good.map((r) => r.date).sort();
+  return {
+    runs,
+    ok: good.length,
+    bad: runs.length - good.length,
+    gross: Math.round(good.reduce((s, r) => s + r.sum, 0) * 100) / 100,
+    net: Math.round(good.reduce((s, r) => s + (r.net ?? r.sum), 0) * 100) / 100,
+    first: p.soStart || dates[0] || "",
+    last: dates[dates.length - 1] || "",
+    contacts,
+  };
 }
 
 /** what a Grow event means for a project — mutates the draft, returns a short summary */
@@ -1031,56 +1077,84 @@ export const actions = {
     });
   },
 
-  /** import standing-order runs from a Grow report; returns counts + the rows that matched no project */
+  /** import a Grow report into standing-order contacts (created on the fly, linked to projects when they match) */
   importGrowRows(rows: ReportRow[]) {
     let added = 0;
     let dup = 0;
-    let ignored = 0;
-    const unmatched: ReportRow[] = [];
-    const touched = new Map<string, number>();
+    let created = 0;
+    let linked = 0;
     update((d) => {
-      const skip = new Set(d.growIgnore || []);
       for (const r of rows) {
-        const p = d.projects.find((x) => samePerson(x, r));
-        if (!p) {
-          if (ignoreKeys(r).some((k) => skip.has(k))) ignored++;
-          else unmatched.push(r);
+        let c = d.soContacts.find((x) => samePerson(x, r));
+        if (!c) {
+          c = {
+            id: uid(),
+            name: r.name,
+            phone: r.phone,
+            email: r.email,
+            note: "",
+            projectId: "",
+            runs: [],
+            created: Date.now(),
+          };
+          d.soContacts.push(c);
+          created++;
+        } else {
+          if (!c.name && r.name) c.name = r.name;
+          if (!c.phone && r.phone) c.phone = r.phone;
+          if (!c.email && r.email) c.email = r.email;
+        }
+        if (c.runs.some((x) => x.txCode === r.key)) {
+          dup++;
           continue;
         }
-        if (importRun(p, r)) {
-          added++;
-          touched.set(p.id, (touched.get(p.id) ?? 0) + 1);
-        } else dup++;
+        c.runs.push({
+          id: uid(),
+          date: r.date,
+          ok: true,
+          sum: r.sum,
+          net: r.net,
+          note: "",
+          desc: r.desc,
+          txCode: r.key,
+        });
+        c.runs.sort((a, b) => b.date.localeCompare(a.date));
+        added++;
       }
-      for (const [id, n] of touched) log(d, id, `יובאו ${n} ריצות הוראת קבע מדוח Grow`);
+      linked += autoLink(d);
     });
-    return { added, dup, ignored, unmatched };
+    return { added, dup, created, linked };
   },
-  /** stop asking about these people (past clients that are no longer projects) */
-  ignoreGrowRows(rows: ReportRow[]) {
+  /** link contacts to projects by matching phone / email; returns how many were linked */
+  autoLinkContacts() {
+    let n = 0;
     update((d) => {
-      const set = new Set(d.growIgnore || []);
-      rows.forEach((r) => ignoreKeys(r).forEach((k) => set.add(k)));
-      d.growIgnore = [...set];
+      n = autoLink(d);
     });
+    return n;
   },
-  clearGrowIgnore() {
+  /** link a standing-order contact to a project ("" = unlink) */
+  linkContact(contactId: string, projectId: string) {
     update((d) => {
-      d.growIgnore = [];
-    });
-  },
-  /** link one report row to a project by hand (remembers its phone/email for next time) */
-  importRowTo(r: ReportRow, projectId: string) {
-    let ok = false;
-    update((d) => {
+      const c = d.soContacts.find((x) => x.id === contactId);
+      if (!c) return;
+      c.projectId = projectId;
       const p = findProject(d, projectId);
-      if (!p) return;
-      ok = importRun(p, r);
-      if (!p.phone && r.phone) p.phone = r.phone;
-      if (!p.email && r.email) p.email = r.email;
-      if (ok) log(d, p.id, "יובאה ריצת הוראת קבע מדוח Grow");
+      if (p) syncProjectFromContacts(d, p);
     });
-    return ok;
+  },
+  patchContact(id: string, patch: Partial<SOContact>) {
+    update((d) => {
+      const c = d.soContacts.find((x) => x.id === id);
+      if (c) Object.assign(c, patch);
+    });
+  },
+  deleteContact(id: string) {
+    undoable("איש הקשר נמחק", () =>
+      update((d) => {
+        d.soContacts = d.soContacts.filter((x) => x.id !== id);
+      }),
+    );
   },
 
   /* ---- leads ---- */

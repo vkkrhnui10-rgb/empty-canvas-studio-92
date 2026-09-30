@@ -43,7 +43,7 @@ import {
   SO_STATES,
   accentFor,
 } from "./constants";
-import { actions, findProject, newProject, useDB } from "./store";
+import { actions, findProject, newProject, projectSO, useDB } from "./store";
 import type { Project, SOState, SiteCheck } from "./types";
 import {
   Badge,
@@ -483,11 +483,7 @@ export function ProjectDrawer({ id, onClose }: { id: string | "new" | null; onCl
             />
           </Field>
           <Field label="סיום פרויקט" hint="נקבע לבד כשהסטטוס הופך ל״הושק״">
-            <Input
-              type="date"
-              value={f.doneDate}
-              onChange={(e) => s("doneDate", e.target.value)}
-            />
+            <Input type="date" value={f.doneDate} onChange={(e) => s("doneDate", e.target.value)} />
           </Field>
         </div>
 
@@ -1096,7 +1092,9 @@ function MoneyTab({ p }: { p: Project }) {
                 {x.note && ` · ${x.note}`}
               </span>
               <button
-                onClick={() => actions.setPaymentInvoiced(p.id, x.id, !(x.invoiced || x.invoiceUrl))}
+                onClick={() =>
+                  actions.setPaymentInvoiced(p.id, x.id, !(x.invoiced || x.invoiceUrl))
+                }
                 className={cn(
                   "mx-2 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold",
                   x.invoiced || x.invoiceUrl
@@ -1487,19 +1485,18 @@ function NotesTab({ p }: { p: Project }) {
   );
 }
 
-
 /* ---------------- dates line + standing-order history ---------------- */
-function okRuns(p: Project) {
-  return (p.soRuns || []).filter((r) => r.ok).length;
-}
-
 export function ProjectDates({ p }: { p: Project }) {
-  const runs = okRuns(p);
+  const db = useDB();
+  const so = projectSO(db, p);
   const items: [string, string][] = [];
   if (p.startDate) items.push(["התחיל", fmtDate(p.startDate)]);
   if (p.doneDate) items.push(["הסתיים", fmtDate(p.doneDate)]);
-  if (p.hosted && p.soStart) items.push(["הוראת קבע מ-", fmtDate(p.soStart)]);
-  if (p.hosted && runs > 0) items.push(["ריצות שעברו", String(runs)]);
+  if (p.hosted && so.first) items.push(["הוראת קבע מ-", fmtDate(so.first)]);
+  if (p.hosted && so.ok > 0) {
+    items.push(["ריצות שעברו", String(so.ok)]);
+    items.push(["הרווחתי מאחסון", ils(so.net)]);
+  }
   if (!items.length) return null;
   return (
     <div className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[color:var(--focus-muted)]">
@@ -1513,26 +1510,73 @@ export function ProjectDates({ p }: { p: Project }) {
 }
 
 function SoRuns({ p }: { p: Project }) {
-  const runs = p.soRuns || [];
+  const db = useDB();
+  const so = projectSO(db, p);
+  const own = new Set((p.soRuns || []).map((r) => r.id));
   const [open, setOpen] = React.useState(false);
   const [date, setDate] = React.useState(() => new Date().toISOString().slice(0, 10));
   const [sum, setSum] = React.useState(String(p.hostPrice || ""));
-  const ok = runs.filter((r) => r.ok).length;
-  const bad = runs.length - ok;
+  const free = db.soContacts.filter((c) => !c.projectId);
   return (
     <div className="space-y-3 rounded-xl bg-[var(--focus-bg2)] p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm">
-          <b>{ok}</b> ריצות עברו
-          {bad > 0 && (
-            <>
-              {" · "}
-              <span className="text-[color:var(--focus-destructive)]">
-                <b>{bad}</b> נכשלו
-              </span>
-            </>
-          )}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {(
+          [
+            ["ריצות עברו", String(so.ok)],
+            ["נכשלו", String(so.bad)],
+            ["נגבה (ברוטו)", ils(so.gross)],
+            ["הרווחתי (נטו)", ils(so.net)],
+          ] as const
+        ).map(([l, v]) => (
+          <div key={l} className="rounded-lg bg-[var(--focus-card)] px-2.5 py-2">
+            <div className="text-[11px] text-[color:var(--focus-muted)]">{l}</div>
+            <div className="font-bold tabular-nums">{v}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        <div className="text-xs font-semibold text-[color:var(--focus-muted)]">
+          אנשי קשר של ההוראה (מי שמשלם על האחסון)
         </div>
+        {so.contacts.map((c) => (
+          <div
+            key={c.id}
+            className="flex items-center gap-2 rounded-lg bg-[var(--focus-card)] px-2.5 py-2 text-sm"
+          >
+            <span className="min-w-0 flex-1 truncate">
+              <b>{c.name || c.email || c.phone}</b>
+              <span className="text-xs text-[color:var(--focus-muted)]" dir="auto">
+                {" "}
+                · {c.phone || c.email}
+              </span>
+            </span>
+            <IconBtn icon={X} label="נתק" onClick={() => actions.linkContact(c.id, "")} />
+          </div>
+        ))}
+        {free.length > 0 ? (
+          <Select
+            value=""
+            onChange={(cid) => cid && actions.linkContact(cid, p.id)}
+            options={["", ...free.map((c) => c.id)]}
+            labels={{
+              "": "+ קשר איש קשר מהוראות הקבע…",
+              ...Object.fromEntries(
+                free.map((c) => [c.id, `${c.name || c.email || c.phone} · ${c.phone || c.email}`]),
+              ),
+            }}
+          />
+        ) : (
+          so.contacts.length === 0 && (
+            <p className="text-xs text-[color:var(--focus-muted)]">
+              אין אנשי קשר לקישור. ייבא דוח Grow בכספים ← הוראות קבע · אנשי קשר.
+            </p>
+          )
+        )}
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs font-semibold text-[color:var(--focus-muted)]">היסטוריית ריצות</div>
         <Btn size="sm" variant="soft" icon={Plus} onClick={() => setOpen((v) => !v)}>
           רשום ריצה
         </Btn>
@@ -1573,13 +1617,13 @@ function SoRuns({ p }: { p: Project }) {
           </Btn>
         </div>
       )}
-      {runs.length === 0 ? (
+      {so.runs.length === 0 ? (
         <p className="text-xs text-[color:var(--focus-muted)]">
-          עוד אין ריצות. חיובים מ-Grow יירשמו כאן לבד, ואפשר גם לרשום ידנית.
+          עוד אין ריצות. חיובים מ-Grow והדוח המיובא יירשמו כאן, ואפשר גם לרשום ידנית.
         </p>
       ) : (
         <ul className="max-h-56 divide-y divide-[color:var(--focus-border)] overflow-auto text-sm">
-          {runs.map((r) => (
+          {so.runs.map((r) => (
             <li key={r.id} className="flex items-center gap-2 py-1.5">
               <span
                 className="size-2 shrink-0 rounded-full"
@@ -1587,14 +1631,12 @@ function SoRuns({ p }: { p: Project }) {
               />
               <span className="tabular-nums">{fmtDate(r.date)}</span>
               <span className="min-w-0 flex-1 truncate text-xs text-[color:var(--focus-muted)]">
-                {r.ok ? "עברה" : `נכשלה${r.note ? ` · ${r.note}` : ""}`}
+                {r.ok ? r.desc || "עברה" : `נכשלה${r.note ? ` · ${r.note}` : ""}`}
               </span>
               {r.sum > 0 && <span className="tabular-nums">{ils(r.sum)}</span>}
-              <IconBtn
-                icon={X}
-                label="מחק"
-                onClick={() => actions.deleteSORun(p.id, r.id)}
-              />
+              {own.has(r.id) && (
+                <IconBtn icon={X} label="מחק" onClick={() => actions.deleteSORun(p.id, r.id)} />
+              )}
             </li>
           ))}
         </ul>
@@ -1602,7 +1644,6 @@ function SoRuns({ p }: { p: Project }) {
     </div>
   );
 }
-
 
 /* ---------------- live site: is it up + live preview ---------------- */
 function SiteCard({ p }: { p: Project }) {

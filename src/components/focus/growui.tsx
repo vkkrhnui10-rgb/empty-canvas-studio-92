@@ -16,13 +16,13 @@ import {
 import { toast } from "sonner";
 import { C } from "./constants";
 import { WEBHOOK_BASE, signOut, syncNow, useCloud } from "./cloud";
-import { actions, replaceFromRemote, useDB } from "./store";
-import type { GrowEntry } from "./types";
+import { actions, projectSO, replaceFromRemote, useDB } from "./store";
+import type { GrowEntry, SOContact } from "./types";
 import { Badge, Btn, Card, EmptyState, Modal, ProjectAvatar, Select } from "./ui";
-import { parseGrowReport, type ReportRow } from "./growreport";
+import { parseGrowReport } from "./growreport";
 import { readSheet } from "./xlsx";
 import { useNav } from "./nav";
-import { ils, timeAgo } from "./utils";
+import { fmtDate, ils, timeAgo } from "./utils";
 
 const KIND: Record<GrowEntry["kind"], { l: string; c: string }> = {
   so_failed: { l: "הוראת קבע נכשלה", c: C.bad },
@@ -301,21 +301,25 @@ export function GrowConnectCard() {
   );
 }
 
-/* ------------------------------ settings: import a Grow report ------------------------------ */
-interface ImportResult {
-  added: number;
-  dup: number;
-  skipped: number;
-  ignored: number;
-  unmatched: ReportRow[];
-}
+/* ------------------------------ finances: standing-order contacts ------------------------------ */
+const cStats = (c: SOContact) => {
+  const ok = c.runs.filter((r) => r.ok);
+  const dates = ok.map((r) => r.date).sort();
+  return {
+    ok: ok.length,
+    bad: c.runs.length - ok.length,
+    gross: ok.reduce((s, r) => s + r.sum, 0),
+    net: ok.reduce((s, r) => s + (r.net ?? r.sum), 0),
+    first: dates[0] ?? "",
+    last: dates[dates.length - 1] ?? "",
+  };
+};
 
-export function GrowImportCard() {
+export function SoContactsTab() {
   const db = useDB();
   const ref = React.useRef<HTMLInputElement>(null);
   const [busy, setBusy] = React.useState(false);
-  const [res, setRes] = React.useState<ImportResult | null>(null);
-  const [open, setOpen] = React.useState(false);
+  const [q, setQ] = React.useState("");
 
   const onFile = async (f: File) => {
     setBusy(true);
@@ -326,8 +330,13 @@ export function GrowImportCard() {
         return;
       }
       const r = actions.importGrowRows(rows);
-      setRes({ ...r, skipped });
-      setOpen(true);
+      toast.success(
+        `יובאו ${r.added} ריצות` +
+          (r.created ? ` · ${r.created} אנשי קשר חדשים` : "") +
+          (r.linked ? ` · ${r.linked} קושרו לפרויקטים` : "") +
+          (r.dup ? ` · ${r.dup} כבר היו` : "") +
+          (skipped ? ` · ${skipped} שורות דולגו` : ""),
+      );
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "לא הצלחתי לקרוא את הקובץ");
     } finally {
@@ -336,154 +345,171 @@ export function GrowImportCard() {
     }
   };
 
-  const assign = (r: ReportRow, pid: string) => {
-    if (!pid) return;
-    actions.importRowTo(r, pid);
-    setRes((x) =>
-      x ? { ...x, unmatched: x.unmatched.filter((u) => u.key !== r.key), added: x.added + 1 } : x,
-    );
-  };
+  const all = db.soContacts.map((c) => ({ c, s: cStats(c) }));
+  const list = all
+    .filter(
+      ({ c }) => !q || `${c.name} ${c.phone} ${c.email}`.toLowerCase().includes(q.toLowerCase()),
+    )
+    .sort((a, b) => Number(!!a.c.projectId) - Number(!!b.c.projectId) || b.s.net - a.s.net);
+  const tot = all.reduce(
+    (t, { s }) => ({ ok: t.ok + s.ok, net: t.net + s.net, gross: t.gross + s.gross }),
+    { ok: 0, net: 0, gross: 0 },
+  );
+  const unlinked = all.filter(({ c }) => !c.projectId).length;
 
   return (
-    <Card className="space-y-3 p-5">
-      <h2 className="flex items-center gap-2 text-[17px] font-bold">
-        <FileSpreadsheet className="size-[18px] text-[color:var(--focus-primary)]" />
-        ייבוא דוח Grow (היסטוריה)
-      </h2>
-      <p className="text-sm text-[color:var(--focus-muted)]">
-        מעלים דוח חודשי מ-Grow (אקסל או CSV). כל חיוב הוראת קבע נרשם בהיסטוריה של הפרויקט המתאים לפי
-        טלפון או מייל, ותאריך תחילת ההוראה מתעדכן. אפשר להעלות כמה חודשים, והעלאה כפולה לא תיצור
-        כפילויות.
-      </p>
-      <input
-        ref={ref}
-        type="file"
-        hidden
-        accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) void onFile(f);
-        }}
-      />
-      <Btn
-        variant="primary"
-        icon={FileSpreadsheet}
-        disabled={busy}
-        onClick={() => ref.current?.click()}
-      >
-        {busy ? "קורא…" : "בחר קובץ דוח"}
-      </Btn>
-
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title="הדוח יובא"
-        description="סיכום הייבוא"
-      >
-        {res && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-[var(--focus-bg2)] p-3">
-                <div className="text-2xl font-bold text-[color:var(--focus-success)]">
-                  {res.added}
-                </div>
-                <div className="text-xs text-[color:var(--focus-muted)]">ריצות נוספו</div>
-              </div>
-              <div className="rounded-xl bg-[var(--focus-bg2)] p-3">
-                <div className="text-2xl font-bold">{res.dup}</div>
-                <div className="text-xs text-[color:var(--focus-muted)]">כבר היו</div>
-              </div>
-              <div className="rounded-xl bg-[var(--focus-bg2)] p-3">
-                <div
-                  className="text-2xl font-bold"
-                  style={{ color: res.unmatched.length ? C.warn : undefined }}
-                >
-                  {res.unmatched.length}
-                </div>
-                <div className="text-xs text-[color:var(--focus-muted)]">לא זוהו</div>
-              </div>
-            </div>
-            {res.ignored > 0 && (
-              <p className="text-xs text-[color:var(--focus-muted)]">
-                {res.ignored} חיובים של לקוחות ברשימת ההתעלמות לא נספרו.
-              </p>
+    <div className="space-y-3">
+      <Card className="space-y-3 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="font-semibold">אנשי קשר של הוראות קבע</div>
+            <p className="mt-0.5 text-sm text-[color:var(--focus-muted)]">
+              מעלים דוח Grow (אקסל/CSV, אפשר מתחילת האחסון). כל משלם נשמר כאיש קשר עם הריצות והרווח
+              שלו, וקושרים אותו לפרויקט — גם אם הפרויקט עוד לא קיים או שאיש הקשר שונה.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            {unlinked > 0 && (
+              <Btn
+                variant="outline"
+                onClick={() => {
+                  const n = actions.autoLinkContacts();
+                  toast(n ? `קושרו ${n} אנשי קשר` : "אין התאמה לפי טלפון/מייל");
+                }}
+              >
+                קשר אוטומטית
+              </Btn>
             )}
-            {res.skipped > 0 && (
-              <p className="text-xs text-[color:var(--focus-muted)]">
-                {res.skipped} שורות אחרות בדוח (זיכויים, עמלות, סיכומים) לא נספרו.
-              </p>
-            )}
-            {res.unmatched.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold">
-                    לא זוהו לפי טלפון/מייל — שייך, או התעלם (לקוחות שהסתיימו):
-                  </div>
-                  <Btn
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      actions.ignoreGrowRows(res.unmatched);
-                      setRes((x) =>
-                        x ? { ...x, ignored: x.ignored + x.unmatched.length, unmatched: [] } : x,
-                      );
-                    }}
-                  >
-                    התעלם מכולם
-                  </Btn>
-                </div>
-                <div className="max-h-72 space-y-2 overflow-auto">
-                  {res.unmatched.map((r) => (
-                    <div
-                      key={r.key}
-                      className="flex flex-wrap items-center gap-2 rounded-xl border border-[color:var(--focus-border)] p-2.5 text-sm"
-                    >
-                      <div className="min-w-32 flex-1">
-                        <div className="font-semibold">{r.name || r.email || r.phone}</div>
-                        <div className="text-xs text-[color:var(--focus-muted)]">
-                          {r.date} · {ils(r.sum)}
-                        </div>
-                      </div>
-                      <Btn
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          actions.ignoreGrowRows([r]);
-                          setRes((x) =>
-                            x
-                              ? {
-                                  ...x,
-                                  ignored: x.ignored + 1,
-                                  unmatched: x.unmatched.filter((u) => u.key !== r.key),
-                                }
-                              : x,
-                          );
-                        }}
-                      >
-                        התעלם
-                      </Btn>
-                      <div className="w-full sm:w-48">
-                        <Select
-                          value=""
-                          onChange={(pid) => assign(r, pid)}
-                          options={["", ...db.projects.map((x) => x.id)]}
-                          labels={{
-                            "": "שייך לפרויקט…",
-                            ...Object.fromEntries(db.projects.map((x) => [x.id, x.name])),
-                          }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <Btn variant="primary" className="w-full" onClick={() => setOpen(false)}>
-              סגור
+            <Btn
+              variant="primary"
+              icon={FileSpreadsheet}
+              disabled={busy}
+              onClick={() => ref.current?.click()}
+            >
+              {busy ? "קורא…" : "ייבוא דוח Grow"}
             </Btn>
           </div>
+          <input
+            ref={ref}
+            type="file"
+            hidden
+            accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onFile(f);
+            }}
+          />
+        </div>
+        {all.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {(
+              [
+                ["אנשי קשר", String(all.length)],
+                ["ריצות שעברו", String(tot.ok)],
+                ["נגבה (ברוטו)", ils(tot.gross)],
+                ["הרווחתי (נטו)", ils(tot.net)],
+              ] as const
+            ).map(([l, v]) => (
+              <div key={l} className="rounded-xl bg-[var(--focus-bg2)] px-3 py-2.5">
+                <div className="text-xs text-[color:var(--focus-muted)]">{l}</div>
+                <div className="text-lg font-bold tabular-nums">{v}</div>
+              </div>
+            ))}
+          </div>
         )}
-      </Modal>
-    </Card>
+      </Card>
+
+      {all.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={FileSpreadsheet}
+            title="עוד אין אנשי קשר של הוראות קבע"
+            subtitle="ייבא דוח מ-Grow וכל מי שחויב יופיע כאן עם מספר הריצות והרווח ממנו"
+          />
+        </Card>
+      ) : (
+        <Card className="divide-y divide-[color:var(--focus-border)] px-2 py-1">
+          {all.length > 8 && (
+            <div className="px-3 py-2">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="חיפוש שם / טלפון / מייל"
+                className="h-10 w-full rounded-lg border border-[color:var(--focus-border)] bg-transparent px-3 text-sm"
+              />
+            </div>
+          )}
+          {list.map(({ c, s }) => (
+            <ContactRow key={c.id} c={c} s={s} />
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function ContactRow({ c, s }: { c: SOContact; s: ReturnType<typeof cStats> }) {
+  const db = useDB();
+  const nav = useNav();
+  const p = db.projects.find((x) => x.id === c.projectId);
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3 text-sm">
+      {p ? (
+        <ProjectAvatar id={p.id} name={p.name} size={36} />
+      ) : (
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[color:color-mix(in_oklab,var(--focus-warning)_14%,transparent)] text-[color:var(--focus-warning)]">
+          <AlertTriangle className="size-4" />
+        </span>
+      )}
+      <div className="min-w-40 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold">{c.name || c.email || c.phone || "ללא שם"}</span>
+          {s.bad > 0 && <Badge color={C.bad}>{s.bad} נכשלו</Badge>}
+        </div>
+        <div className="mt-0.5 text-xs text-[color:var(--focus-muted)]" dir="auto">
+          {c.phone}
+          {c.phone && c.email && " · "}
+          {c.email}
+        </div>
+        <div className="mt-0.5 text-xs text-[color:var(--focus-muted)]">
+          {s.ok} ריצות{s.first && ` · מאז ${fmtDate(s.first)}`}
+          {s.last && ` · אחרונה ${fmtDate(s.last)}`}
+        </div>
+      </div>
+      <div className="text-end">
+        <div className="font-bold tabular-nums">{ils(s.net)}</div>
+        <div className="text-[11px] text-[color:var(--focus-muted)]">
+          נטו · {ils(s.gross)} ברוטו
+        </div>
+      </div>
+      <div className="flex w-full items-center gap-2 sm:w-64">
+        <div className="min-w-0 flex-1">
+          <Select
+            value={c.projectId}
+            onChange={(pid) => actions.linkContact(c.id, pid)}
+            options={["", ...db.projects.map((x) => x.id)]}
+            labels={{
+              "": "קשר לפרויקט…",
+              ...Object.fromEntries(db.projects.map((x) => [x.id, x.name])),
+            }}
+          />
+        </div>
+        {p ? (
+          <button
+            onClick={() => nav.go("project", p.id)}
+            className="shrink-0 text-xs font-semibold text-[color:var(--focus-muted)] hover:text-[color:var(--focus-primary)]"
+          >
+            פתח ›
+          </button>
+        ) : (
+          <button
+            onClick={() => confirm("למחוק את איש הקשר?") && actions.deleteContact(c.id)}
+            className="shrink-0 text-xs text-[color:var(--focus-muted)] hover:text-[color:var(--focus-destructive)]"
+          >
+            מחק
+          </button>
+        )}
+      </div>
+    </div>
   );
 }

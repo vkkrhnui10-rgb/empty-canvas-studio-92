@@ -5,6 +5,7 @@ export interface ReportRow {
   key: string; // stable id for de-duplication (Grow reference)
   date: string; // YYYY-MM-DD
   sum: number;
+  net: number;
   name: string;
   phone: string;
   email: string;
@@ -44,6 +45,7 @@ export function parseGrowReport(rows: string[][]): { rows: ReportRow[]; skipped:
     phone: col("טלפון"),
     kind: col("סוג תשלום"),
     sum: col("סכום"),
+    net: col("להעברה"),
     ref: col("אסמכתא"),
     desc: col("תיאור התשלום"),
   };
@@ -63,6 +65,8 @@ export function parseGrowReport(rows: string[][]): { rows: ReportRow[]; skipped:
       key: get(c.ref) ? `rep-${get(c.ref)}` : `rep-${date}-${get(c.phone)}-${sum}`,
       date,
       sum,
+      net:
+        c.net >= 0 && get(c.net) !== "" ? Math.round(Number(get(c.net)) * 100) / 100 || sum : sum,
       name: `${get(c.first)} ${get(c.last)}`.trim(),
       phone: get(c.phone),
       email: get(c.email).toLowerCase(),

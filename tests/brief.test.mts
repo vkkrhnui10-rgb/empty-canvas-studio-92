@@ -138,3 +138,20 @@ test("brief ids are long and unique", () => {
   assert.equal(ids.size, 200);
   assert.ok([...ids].every((i) => i.length === 18));
 });
+
+test("testimonials: cleaned, and they reach the summary", () => {
+  const a = cleanAnswers({
+    testimonials: [{ name: "דנה", text: "שירות מעולה" }, { text: 5 }, "x"],
+  });
+  assert.equal(a.testimonials.length, 3);
+  assert.deepEqual(a.testimonials[0], { name: "דנה", text: "שירות מעולה" });
+  const p = briefPrompt({
+    client: "ע",
+    business: "",
+    answers: a,
+    files: [{ path: "x", name: "w.png", kind: "review", size: 1, type: "image/png" }],
+  });
+  assert.match(p, /המלצות לקוחות/);
+  assert.match(p, /"שירות מעולה" — דנה/);
+  assert.match(p, /1 צילומי מסך של המלצות/);
+});

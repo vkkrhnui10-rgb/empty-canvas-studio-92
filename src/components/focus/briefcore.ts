@@ -18,6 +18,7 @@ export const emptyAnswers = (): BriefAnswers => ({
   styles: [],
   styleNote: "",
   sites: [{ url: "", note: "" }],
+  testimonials: [{ name: "", text: "" }],
   avoid: "",
   noPhotos: false,
   photosLink: "",
@@ -59,6 +60,9 @@ export function cleanAnswers(raw: unknown): BriefAnswers {
   out.sites = (Array.isArray(r.sites) ? r.sites : [])
     .slice(0, 10)
     .map((s: Record<string, unknown>) => ({ url: str(s?.url, 500), note: str(s?.note, 1000) }));
+  out.testimonials = (Array.isArray(r.testimonials) ? r.testimonials : [])
+    .slice(0, 30)
+    .map((s: Record<string, unknown>) => ({ name: str(s?.name, 200), text: str(s?.text, 3000) }));
   return out as unknown as BriefAnswers;
 }
 
@@ -176,6 +180,8 @@ export function briefMarkdown(b: Pick<Brief, "client" | "business" | "answers" |
   const files = b.files || [];
   const logo = files.filter((f) => f.kind === "logo");
   const imgs = files.filter((f) => f.kind === "image");
+  const reviewShots = files.filter((f) => f.kind === "review");
+  const reviews = a.testimonials.filter((t) => t.text.trim());
   const services = a.services.filter((s) => s.name.trim() || s.desc.trim());
   const sites = a.sites.filter((s) => s.url.trim());
   let md = `# אפיון אתר — ${name}\n\n`;
@@ -219,6 +225,13 @@ export function briefMarkdown(b: Pick<Brief, "client" | "business" | "answers" |
       ? "- אין תמונות — להשתמש בתמונות סטוק איכותיות שמתאימות לתחום\n"
       : "- לא הועלו תמונות\n";
   md += line("קישור לתמונות נוספות", a.photosLink);
+  if (reviews.length || reviewShots.length) {
+    md += `\n## המלצות לקוחות\n`;
+    for (const t of reviews)
+      md += `- "${t.text.trim()}"${t.name.trim() ? ` — ${t.name.trim()}` : ""}\n`;
+    if (reviewShots.length)
+      md += `- ${reviewShots.length} צילומי מסך של המלצות בקובץ ה-ZIP (תיקיית reviews)\n`;
+  }
   md += `\n## פרטי קשר לאתר\n`;
   md += line("טלפון", a.phone);
   md += line("וואטסאפ", a.whatsapp);

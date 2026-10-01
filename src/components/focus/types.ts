@@ -258,6 +258,10 @@ export interface BriefService {
   name: string;
   desc: string;
 }
+export interface BriefTestimonial {
+  name: string;
+  text: string;
+}
 export interface BriefSite {
   url: string;
   note: string;
@@ -265,7 +269,7 @@ export interface BriefSite {
 export interface BriefFile {
   path: string;
   name: string;
-  kind: "logo" | "image";
+  kind: "logo" | "image" | "review";
   size: number;
   type: string;
 }
@@ -283,6 +287,7 @@ export interface BriefAnswers {
   styles: string[];
   styleNote: string;
   sites: BriefSite[];
+  testimonials: BriefTestimonial[];
   avoid: string;
   noPhotos: boolean;
   photosLink: string;

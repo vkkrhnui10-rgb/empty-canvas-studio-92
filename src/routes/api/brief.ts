@@ -5,7 +5,7 @@ import { cleanAnswers } from "@/components/focus/briefcore";
  * Website brief (questionnaire) — the public side of /b/<id>.
  *
  *   GET  ?b=<id>                         → { client, business, owner, status, answers? }
- *   POST ?b=<id>&op=upload&kind=logo|image&name=…   (raw file body) → { path }
+ *   POST ?b=<id>&op=upload&kind=logo|image|review&name=…   (raw file body) → { path }
  *   POST ?b=<id>&op=submit  { answers, files }      → lands in grow_events (kind "brief")
  *
  * Owner only (Authorization: Bearer <access token>):
@@ -131,7 +131,7 @@ export const Route = createFileRoute("/api/brief")({
           const bid = String(body.b ?? "");
           if (!validId(bid)) return json({ error: "bad id" }, 400);
           const all: string[] = [];
-          for (const kind of ["logo", "image"]) {
+          for (const kind of ["logo", "image", "review"]) {
             const { data } = await sb.storage
               .from(BUCKET)
               .list(`${uid}/${bid}/${kind}`, { limit: 200 });
@@ -148,7 +148,8 @@ export const Route = createFileRoute("/api/brief")({
         if (!o) return json({ error: "הקישור כבר לא פעיל" }, 404);
 
         if (op === "upload") {
-          const kind = q.get("kind") === "logo" ? "logo" : "image";
+          const k = q.get("kind");
+          const kind = k === "logo" ? "logo" : k === "review" ? "review" : "image";
           const name = (q.get("name") || "file").slice(0, 120);
           const ext = extOf(name);
           if (!(kind === "logo" ? LOGO_EXT : IMG_EXT).includes(ext))
@@ -191,7 +192,7 @@ export const Route = createFileRoute("/api/brief")({
             .map((f: Record<string, unknown>) => ({
               path: String(f.path),
               name: String(f.name ?? "file").slice(0, 120),
-              kind: f.kind === "logo" ? "logo" : "image",
+              kind: f.kind === "logo" ? "logo" : f.kind === "review" ? "review" : "image",
               size: Number(f.size) || 0,
               type: String(f.type ?? "").slice(0, 60),
             }));

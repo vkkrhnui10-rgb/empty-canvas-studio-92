@@ -12,7 +12,7 @@ import { BRIEF_CSS } from "./style";
 interface UFile {
   key: string;
   name: string;
-  kind: "logo" | "image";
+  kind: "logo" | "image" | "review";
   size: number;
   type: string;
   status: "up" | "done" | "err";
@@ -48,6 +48,11 @@ const STEPS = [
     h: "גם של עסקים מתחומים אחרים. זה עוזר לנו להבין מה מתאים לכם.",
   },
   { k: "photos", t: "תמונות", h: "של העסק, העבודות, הצוות. אנחנו נבחר ונעבד אותן." },
+  {
+    k: "reviews",
+    t: "המלצות",
+    h: "מה לקוחות אומרים עליכם. המלצות אמיתיות מגדילות אמון, וזה אחד הדברים שהכי משפיעים באתר.",
+  },
   { k: "contact", t: "פרטי התקשרות", h: "מה יופיע באתר כדי שלקוחות יוכלו לפנות אליכם." },
 ] as const;
 const LAST = STEPS.length - 1;
@@ -167,14 +172,14 @@ export default function BriefPage({ id }: { id: string }) {
     void startUpload(f, file);
   };
 
-  const addPhotos = async (list: File[]) => {
+  const addPhotos = async (list: File[], kind: "image" | "review" = "image") => {
     const queue: [UFile, Blob][] = [];
     for (const file of list.slice(0, 60)) {
       const p = await preparePhoto(file);
       const f: UFile = {
         key: rid(),
         name: p.name,
-        kind: "image",
+        kind,
         size: p.blob.size,
         type: p.type,
         status: "up",
@@ -185,7 +190,7 @@ export default function BriefPage({ id }: { id: string }) {
       setFiles((fs) => [...fs, f]);
       queue.push([f, p.blob]);
     }
-    set("noPhotos", false);
+    if (kind === "image") set("noPhotos", false);
     let i = 0; // three uploads at a time
     const worker = async () => {
       while (i < queue.length) {
@@ -236,6 +241,7 @@ export default function BriefPage({ id }: { id: string }) {
 
   const logo = files.find((f) => f.kind === "logo");
   const photos = files.filter((f) => f.kind === "image");
+  const shots = files.filter((f) => f.kind === "review");
   const owner = info?.owner?.trim() || "";
   const title = a.business.trim() || info?.business || "";
 
@@ -297,6 +303,10 @@ export default function BriefPage({ id }: { id: string }) {
             </span>
             <span>
               לוגו: <b>{logo ? "הועלה" : "—"}</b>
+            </span>
+            <span>
+              המלצות:{" "}
+              <b>{a.testimonials.filter((t) => t.text.trim()).length + shots.length || "—"}</b>
             </span>
             <span>
               תמונות: <b>{photos.length || (a.noPhotos ? "נשתמש בתמונות מקצועיות" : "—")}</b>
@@ -736,36 +746,7 @@ export default function BriefPage({ id }: { id: string }) {
                     title="העלאת תמונות"
                     sub="אפשר לבחור כמה בבת אחת. התמונות מוקטנות אוטומטית"
                   />
-                  {photos.length > 0 && (
-                    <div className="bf-thumbs">
-                      {photos.map((f) => (
-                        <div key={f.key} className={`bf-thumb ${f.status}`}>
-                          {f.thumb ? (
-                            <img src={f.thumb} alt="" />
-                          ) : (
-                            <span className="bf-thumb-n">{f.name}</span>
-                          )}
-                          {f.status === "up" && (
-                            <span className="bf-thumb-bar">
-                              <i style={{ width: `${Math.round(f.prog * 100)}%` }} />
-                            </span>
-                          )}
-                          {f.status === "err" && (
-                            <button className="bf-thumb-err" onClick={() => retry(f)}>
-                              נכשל, לנסות שוב
-                            </button>
-                          )}
-                          <button
-                            className="bf-x"
-                            aria-label="הסרת התמונה"
-                            onClick={() => removeFile(f.key)}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <Thumbs list={photos} retry={retry} remove={removeFile} />
                   <label className="bf-check-row">
                     <input
                       type="checkbox"
@@ -783,6 +764,79 @@ export default function BriefPage({ id }: { id: string }) {
                       onChange={(e) => set("photosLink", e.target.value)}
                       placeholder="https://"
                     />
+                  </Q>
+                </>
+              )}
+
+              {S.k === "reviews" && (
+                <>
+                  <div className="bf-group">
+                    {a.testimonials.map((t, i) => (
+                      <div className="bf-item" key={i}>
+                        <Area
+                          value={t.text}
+                          rows={3}
+                          placeholder="מה הלקוח אמר עליכם"
+                          onChange={(v) =>
+                            set(
+                              "testimonials",
+                              a.testimonials.map((x, j) => (j === i ? { ...x, text: v } : x)),
+                            )
+                          }
+                        />
+                        <input
+                          className="bf-in"
+                          value={t.name}
+                          placeholder="שם הלקוח ותפקיד, אם רוצים (למשל: דנה, בעלת סטודיו)"
+                          onChange={(e) =>
+                            set(
+                              "testimonials",
+                              a.testimonials.map((x, j) =>
+                                j === i ? { ...x, name: e.target.value } : x,
+                              ),
+                            )
+                          }
+                        />
+                        {a.testimonials.length > 1 && (
+                          <button
+                            className="bf-x"
+                            aria-label="הסרת ההמלצה"
+                            onClick={() =>
+                              set(
+                                "testimonials",
+                                a.testimonials.filter((_, j) => j !== i),
+                              )
+                            }
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {a.testimonials.length < 30 && (
+                    <button
+                      className="bf-add"
+                      onClick={() =>
+                        set("testimonials", [...a.testimonials, { name: "", text: "" }])
+                      }
+                    >
+                      הוספת המלצה
+                    </button>
+                  )}
+                  <Q
+                    label="או צילומי מסך של המלצות"
+                    hint="מוואטסאפ, גוגל, פייסבוק או מייל. אנחנו נעתיק את הטקסט"
+                    optional
+                  >
+                    <Drop
+                      multiple
+                      accept="image/*"
+                      onFiles={(f) => addPhotos(f, "review")}
+                      title="העלאת צילומי מסך"
+                      sub="אפשר כמה בבת אחת"
+                    />
+                    <Thumbs list={shots} retry={retry} remove={removeFile} />
                   </Q>
                 </>
               )}
@@ -882,6 +936,40 @@ export default function BriefPage({ id }: { id: string }) {
 }
 
 /* ---------------- small pieces ---------------- */
+function Thumbs({
+  list,
+  retry,
+  remove,
+}: {
+  list: UFile[];
+  retry: (f: UFile) => void;
+  remove: (key: string) => void;
+}) {
+  if (!list.length) return null;
+  return (
+    <div className="bf-thumbs">
+      {list.map((f) => (
+        <div key={f.key} className={`bf-thumb ${f.status}`}>
+          {f.thumb ? <img src={f.thumb} alt="" /> : <span className="bf-thumb-n">{f.name}</span>}
+          {f.status === "up" && (
+            <span className="bf-thumb-bar">
+              <i style={{ width: `${Math.round(f.prog * 100)}%` }} />
+            </span>
+          )}
+          {f.status === "err" && (
+            <button className="bf-thumb-err" onClick={() => retry(f)}>
+              נכשל, לנסות שוב
+            </button>
+          )}
+          <button className="bf-x" aria-label="הסרה" onClick={() => remove(f.key)}>
+            ×
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function Q({
   label,
   hint,

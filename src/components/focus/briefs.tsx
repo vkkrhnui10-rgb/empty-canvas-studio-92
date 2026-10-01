@@ -18,6 +18,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { briefMarkdown, briefProgress, briefPrompt, emptyAnswers, makeZip } from "./briefcore";
 import { WEBHOOK_BASE, useCloud } from "./cloud";
@@ -128,7 +129,9 @@ async function downloadZip(b: Brief) {
         const clean = f.name.replace(/[\\/:*?"<>|]+/g, "_");
         out.push({
           name:
-            f.kind === "logo" ? `logo/${clean}` : `images/${String(++n).padStart(2, "0")}-${clean}`,
+            f.kind === "logo"
+              ? `logo/${clean}`
+              : `${f.kind === "review" ? "reviews" : "images"}/${String(++n).padStart(2, "0")}-${clean}`,
           data,
         });
         toast.loading(`מוריד קבצים… ${out.length - 1}/${files.length}`, { id });
@@ -453,6 +456,8 @@ function BriefDetail({ b }: { b: Brief }) {
   const { urls, err } = useFileUrls(done ? b.files : undefined);
   const logo = b.files?.find((f) => f.kind === "logo");
   const imgs = b.files?.filter((f) => f.kind === "image") || [];
+  const shots = b.files?.filter((f) => f.kind === "review") || [];
+  const reviews = a.testimonials.filter((t) => t.text.trim());
 
   React.useEffect(() => {
     if (done && !b.seenAt) actions.patchBrief(b.id, { seenAt: Date.now() });
@@ -614,6 +619,51 @@ function BriefDetail({ b }: { b: Brief }) {
               {err && <p className="mt-2 text-xs text-[color:var(--focus-destructive)]">{err}</p>}
               <Row l="קישור לתמונות" v={a.photosLink} link />
             </Section>
+            {(reviews.length > 0 || shots.length > 0) && (
+              <Section title={`המלצות לקוחות (${reviews.length + shots.length})`}>
+                {reviews.length > 0 && (
+                  <ul className="space-y-3">
+                    {reviews.map((t, i) => (
+                      <li key={i} className="border-s-2 border-[color:var(--focus-border)] ps-3">
+                        <p className="whitespace-pre-line">{t.text}</p>
+                        {t.name.trim() && (
+                          <p className="mt-0.5 text-[13px] text-[color:var(--focus-muted)]">
+                            {t.name}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {shots.length > 0 && (
+                  <div
+                    className={cn(
+                      "grid grid-cols-3 gap-2 sm:grid-cols-4",
+                      reviews.length > 0 && "mt-4",
+                    )}
+                  >
+                    {shots.map((f) => (
+                      <a
+                        key={f.path}
+                        href={urls[f.path]}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="aspect-[3/4] overflow-hidden rounded-lg bg-[var(--focus-bg2)]"
+                      >
+                        {urls[f.path] && (
+                          <img
+                            src={urls[f.path]}
+                            alt={f.name}
+                            loading="lazy"
+                            className="size-full object-cover"
+                          />
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </Section>
+            )}
             <Section title="פרטי קשר לאתר">
               <Row l="טלפון" v={a.phone} ltr />
               <Row l="וואטסאפ" v={a.whatsapp} ltr />

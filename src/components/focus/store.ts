@@ -1422,7 +1422,12 @@ export const actions = {
       .map((f: Record<string, unknown>) => ({
         path: String(f.path),
         name: String(f.name ?? "file"),
-        kind: f.kind === "logo" ? ("logo" as const) : ("image" as const),
+        kind:
+          f.kind === "logo"
+            ? ("logo" as const)
+            : f.kind === "review"
+              ? ("review" as const)
+              : ("image" as const),
         size: Number(f.size) || 0,
         type: String(f.type ?? ""),
       }));

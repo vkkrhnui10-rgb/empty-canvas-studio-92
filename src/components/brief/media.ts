@@ -82,7 +82,7 @@ export async function readLogo(file: File): Promise<{ thumb: string; palette: st
 
 export function uploadFile(
   id: string,
-  kind: "logo" | "image",
+  kind: "logo" | "image" | "review",
   name: string,
   blob: Blob,
   onProgress: (p: number) => void,

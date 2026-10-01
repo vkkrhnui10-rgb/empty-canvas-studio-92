@@ -46,16 +46,28 @@ import { NavCtx, type Nav } from "./nav";
 import { IconBtn, Kbd } from "./ui";
 import { fmtClock, greeting, todayStr } from "./utils";
 import { Dashboard } from "./dashboard";
-import { Planner } from "./planner";
 import { FocusView, useTick } from "./focus";
 import { TasksView, WeeklyView } from "./lists";
-import { StatsView } from "./stats";
-import { ProjectDrawer, ProjectPage, ProjectsView } from "./projects";
-import { AlertsView, CpanelsView, FinancesView } from "./money";
+
+/* heavy pages load on demand — keeps the first load (and charts) out of the main bundle */
+const Planner = React.lazy(() => import("./planner").then((m) => ({ default: m.Planner })));
+const StatsView = React.lazy(() => import("./stats").then((m) => ({ default: m.StatsView })));
+const ProjectDrawer = React.lazy(() =>
+  import("./projects").then((m) => ({ default: m.ProjectDrawer })),
+);
+const ProjectPage = React.lazy(() =>
+  import("./projects").then((m) => ({ default: m.ProjectPage })),
+);
+const ProjectsView = React.lazy(() =>
+  import("./projects").then((m) => ({ default: m.ProjectsView })),
+);
+const AlertsView = React.lazy(() => import("./money").then((m) => ({ default: m.AlertsView })));
+const CpanelsView = React.lazy(() => import("./money").then((m) => ({ default: m.CpanelsView })));
+const FinancesView = React.lazy(() => import("./money").then((m) => ({ default: m.FinancesView })));
+const LeadsView = React.lazy(() => import("./leads").then((m) => ({ default: m.LeadsView })));
 import { CommandPalette, SettingsView, ShortcutsDialog } from "./settings";
 import { QuickAddDialog, TaskDrawer } from "./tasks";
 import { InlineFloating, useFloating } from "./floating";
-import { LeadsView } from "./leads";
 import { LoginScreen, RecoveryDialog, SyncBadge } from "./auth";
 import { startCloud, useCloud } from "./cloud";
 
@@ -495,7 +507,7 @@ function Shell() {
             )}
           >
             <div key={view + (projectId ?? "")} className="focus-page-in min-h-full">
-              {page}
+              <React.Suspense fallback={<PageLoading />}>{page}</React.Suspense>
             </div>
           </main>
         </div>
@@ -571,13 +583,25 @@ function Shell() {
         onClose={() => setQuick({ open: false })}
       />
       <TaskDrawer id={taskId} onClose={() => setTaskId(null)} />
-      <ProjectDrawer id={projEdit} onClose={() => setProjEdit(null)} />
+      {projEdit !== null && (
+        <React.Suspense fallback={null}>
+          <ProjectDrawer id={projEdit} onClose={() => setProjEdit(null)} />
+        </React.Suspense>
+      )}
       <CommandPalette open={palette} onOpenChange={setPalette} />
       <ShortcutsDialog open={help} onClose={() => setHelp(false)} />
       {floating.mode === "inline" && (
         <InlineFloating onClose={floating.close} onOpenApp={() => go("focus")} />
       )}
     </NavCtx.Provider>
+  );
+}
+
+function PageLoading() {
+  return (
+    <div className="flex h-64 items-center justify-center text-sm text-[color:var(--focus-muted)]">
+      <span className="animate-pulse">טוען…</span>
+    </div>
   );
 }
 

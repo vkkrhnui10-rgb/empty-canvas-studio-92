@@ -15,7 +15,7 @@ export interface ReportRow {
 const norm = (s: string) => s.replace(/[\s"'״׳]/g, "").toLowerCase();
 
 /** Excel date serial (or an already formatted date) → YYYY-MM-DD */
-function toDate(v: string): string {
+export function toDate(v: string): string {
   const s = v.trim();
   if (/^\d+(\.\d+)?$/.test(s)) {
     const d = new Date(Math.round((Number(s) - 25569) * 86400) * 1000);

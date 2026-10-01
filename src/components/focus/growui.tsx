@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { C } from "./constants";
-import { WEBHOOK_BASE, signOut, syncNow, useCloud } from "./cloud";
+import { WEBHOOK_BASE, rotateWebhookToken, signOut, syncNow, useCloud } from "./cloud";
 import { actions, allSORuns, projectSO, replaceFromRemote, useDB } from "./store";
 import type { GrowEntry, SOContact } from "./types";
 import { Badge, Btn, Card, EmptyState, ProjectAvatar, Segmented, Select } from "./ui";
@@ -261,8 +261,24 @@ export function GrowConnectCard() {
             העתק
           </Btn>
         </div>
-        <div className="mt-1.5 text-xs text-[color:var(--focus-muted)]">
-          הכתובת אישית וסודית — מי שמחזיק בה יכול לשלוח אירועים לחשבון שלך.
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 text-xs text-[color:var(--focus-muted)]">
+          <span>הכתובת אישית וסודית — מי שמחזיק בה יכול לשלוח אירועים לחשבון שלך.</span>
+          <button
+            className="font-semibold text-[color:var(--focus-primary)] hover:underline"
+            onClick={async () => {
+              if (
+                !window.confirm(
+                  "להחליף את המפתח? הכתובת הנוכחית תפסיק לעבוד, וצריך לעדכן אותה בכל ה-Webhooks ב-Grow. הבדיקה בשרת תמשיך לעבוד לבד.",
+                )
+              )
+                return;
+              const err = await rotateWebhookToken();
+              if (err) toast.error(err);
+              else toast.success("המפתח הוחלף — עדכן את הכתובת החדשה ב-Grow");
+            }}
+          >
+            החלף מפתח
+          </button>
         </div>
       </div>
       <ol className="space-y-1.5 rounded-xl bg-[var(--focus-bg2)] p-4 text-sm">

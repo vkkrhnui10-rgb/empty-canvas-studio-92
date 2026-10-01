@@ -274,6 +274,19 @@ export async function drainGrow() {
   }
 }
 
+/** replace the personal key (used in the Grow webhook URL and by the server monitor) */
+export async function rotateWebhookToken(): Promise<string> {
+  if (!userId) return "לא מחובר";
+  const token = crypto.randomUUID().replace(/-/g, "");
+  const { error } = await supabase
+    .from("focus_state")
+    .update({ webhook_token: token })
+    .eq("user_id", userId);
+  if (error) return error.message;
+  setCs({ webhookToken: token });
+  return "";
+}
+
 /* ---------------- auth actions ---------------- */
 export async function signIn(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });

@@ -36,7 +36,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { C, DEFAULT_SO_MSG, PRIORITIES, STATUSES } from "./constants";
 import { actions, activeTask, getState, newProject, useDB } from "./store";
-import { Btn, Card, Field, Input, Kbd, Modal, PageHeader, Select, Textarea } from "./ui";
+import { Btn, Card, Field, Input, Kbd, Modal, PageHeader, Segmented, Select, Textarea } from "./ui";
 import { soMessage } from "./billing";
 import { AccountCard, GrowConnectCard } from "./growui";
 import { CloudBackups } from "./growui-backups";
@@ -51,6 +51,7 @@ export function SettingsView() {
   const db = useDB();
   const s = db.settings;
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const [tab, setTab] = React.useState<"general" | "connections" | "data" | "help">("general");
   const exportJSON = downloadBackup;
   const exportCSV = () => {
     const rows = [["כותרת", "פרויקט", "סטטוס", "עדיפות", "יעד", "משוער (דק׳)", "בפועל (דק׳)"]];
@@ -94,184 +95,212 @@ export function SettingsView() {
   return (
     <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8 grid items-start gap-4 xl:grid-cols-2 xl:[&>*:first-child]:col-span-2">
       <PageHeader title="הגדרות" />
-      <Card className="space-y-4 p-5">
-        <h2 className="text-[17px] font-bold">עבודה ופוקוס</h2>
-        <Field label="השם שלך (לברכה בראש המסך)">
-          <Input
-            value={s.ownerName}
-            onChange={(e) => actions.settings({ ownerName: e.target.value })}
-            placeholder="לדוגמה: הלל"
-            className="max-w-xs"
+      <div className="xl:col-span-2">
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "general", label: "כללי" },
+            { value: "connections", label: "חשבון וחיבורים" },
+            { value: "data", label: "גיבוי ונתונים" },
+            { value: "help", label: "קיצורים" },
+          ]}
+        />
+      </div>
+      {tab === "general" && (
+        <>
+          <Card className="space-y-4 p-5">
+            <h2 className="text-[17px] font-bold">עבודה ופוקוס</h2>
+            <Field label="השם שלך (לברכה בראש המסך)">
+              <Input
+                value={s.ownerName}
+                onChange={(e) => actions.settings({ ownerName: e.target.value })}
+                placeholder="לדוגמה: הלל"
+                className="max-w-xs"
+              />
+            </Field>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <Field label="שעות עבודה ביום">
+                <Input
+                  type="number"
+                  min={1}
+                  max={16}
+                  value={s.workHours}
+                  onChange={(e) => actions.settings({ workHours: +e.target.value || 6 })}
+                />
+              </Field>
+              <Field label="בלוק פוקוס (דק׳)">
+                <Input
+                  type="number"
+                  min={5}
+                  value={s.defaultFocusMin}
+                  onChange={(e) => actions.settings({ defaultFocusMin: +e.target.value || 45 })}
+                />
+              </Field>
+              <Field label="הפסקה (דק׳)">
+                <Input
+                  type="number"
+                  min={1}
+                  value={s.breakMin}
+                  onChange={(e) => actions.settings({ breakMin: +e.target.value || 5 })}
+                />
+              </Field>
+              <Field label="תעריף שעתי רצוי (₪)">
+                <Input
+                  type="number"
+                  min={0}
+                  value={s.hourlyTarget}
+                  onChange={(e) => actions.settings({ hourlyTarget: +e.target.value || 0 })}
+                />
+              </Field>
+              <Field label="מחיר אחסון רגיל">
+                <Input
+                  type="number"
+                  step="0.01"
+                  value={s.defaultHostPrice}
+                  onChange={(e) => actions.settings({ defaultHostPrice: +e.target.value || 48.99 })}
+                />
+              </Field>
+            </div>
+            <Toggle
+              label="מעבר אוטומטי למשימה הבאה"
+              hint="אחרי ״בוצע״ הטיימר ממשיך מיד עם המשימה הבאה"
+              checked={s.autoStartNext}
+              onChange={(v) => actions.settings({ autoStartNext: v })}
+            />
+            <Toggle
+              label="צליל עדין בסוף בלוק"
+              checked={s.sound}
+              onChange={(v) => actions.settings({ sound: v })}
+            />
+            <Toggle
+              label="התראת מערכת בסוף בלוק"
+              hint="מופיעה גם כשאתה בחלון אחר"
+              checked={s.notifications}
+              onChange={async (v) => {
+                if (
+                  v &&
+                  typeof Notification !== "undefined" &&
+                  Notification.permission !== "granted"
+                ) {
+                  const r = await Notification.requestPermission();
+                  if (r !== "granted") return;
+                }
+                actions.settings({ notifications: v });
+              }}
+            />
+            <Field label="בדיקת תקינות אתרים ברקע">
+              <Select
+                value={s.siteCheckEvery ?? "week"}
+                onChange={(v) => actions.settings({ siteCheckEvery: v as typeof s.siteCheckEvery })}
+                options={["week", "day", "hour", "10m", "off"]}
+                labels={{
+                  week: "פעם בשבוע",
+                  day: "פעם ביום",
+                  hour: "פעם בשעה",
+                  "10m": "כל 10 דקות",
+                  off: "כבויה",
+                }}
+              />
+            </Field>
+          </Card>
+        </>
+      )}
+      {tab === "connections" && (
+        <>
+          <AccountCard />
+          <GrowConnectCard />
+          <BillingMsgCard />
+        </>
+      )}
+      {tab === "general" && (
+        <Card className="space-y-3 p-5">
+          <h2 className="flex items-center gap-2 text-[17px] font-bold">
+            <PictureInPicture2 className="size-4" /> פאנל צף
+          </h2>
+          <p className="text-sm leading-relaxed text-[color:var(--focus-muted)]">
+            {pipSupported()
+              ? "הדפדפן שלך תומך בחלון צף אמיתי: הפאנל נשאר מעל כל החלונות במחשב — WordPress, cPanel, Claude, כל תוכנה — כל עוד הדפדפן פתוח. הוא חולק את אותו טיימר ונתונים עם המערכת, בלי השהיה."
+              : "הדפדפן הזה לא תומך בחלון צף מעל כל החלונות (נתמך ב-Chrome ו-Edge במחשב). כאן הפאנל יצוף רק בתוך המערכת."}
+          </p>
+          <Toggle
+            label="פאנל קומפקטי"
+            hint="רק משימה, זמן, השהיה ובוצע"
+            checked={s.pipCompact}
+            onChange={(v) => actions.settings({ pipCompact: v })}
           />
-        </Field>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Field label="שעות עבודה ביום">
-            <Input
-              type="number"
-              min={1}
-              max={16}
-              value={s.workHours}
-              onChange={(e) => actions.settings({ workHours: +e.target.value || 6 })}
+        </Card>
+      )}
+      {tab === "data" && (
+        <Card className="space-y-3 p-5">
+          <h2 className="text-[17px] font-bold">גיבוי ונתונים</h2>
+          <p className="text-sm text-[color:var(--focus-muted)]">
+            הנתונים נשמרים בדפדפן הזה במחשב הזה. גבה מדי פעם — ייצוא JSON הוא גיבוי מלא שאפשר לייבא
+            בחזרה.{lastBackup && ` גיבוי אחרון: ${lastBackup}.`}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Btn
+              variant="primary"
+              icon={Download}
+              onClick={() => {
+                exportJSON();
+              }}
+            >
+              גיבוי מלא (JSON)
+            </Btn>
+            <Btn icon={Upload} onClick={() => fileRef.current?.click()}>
+              ייבוא גיבוי
+            </Btn>
+            <Btn variant="outline" icon={Download} onClick={exportCSV}>
+              ייצוא ל-Excel (CSV)
+            </Btn>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                try {
+                  actions.importJSON(await f.text());
+                } catch {
+                  alert("הקובץ לא תקין");
+                }
+                e.target.value = "";
+              }}
             />
-          </Field>
-          <Field label="בלוק פוקוס (דק׳)">
-            <Input
-              type="number"
-              min={5}
-              value={s.defaultFocusMin}
-              onChange={(e) => actions.settings({ defaultFocusMin: +e.target.value || 45 })}
-            />
-          </Field>
-          <Field label="הפסקה (דק׳)">
-            <Input
-              type="number"
-              min={1}
-              value={s.breakMin}
-              onChange={(e) => actions.settings({ breakMin: +e.target.value || 5 })}
-            />
-          </Field>
-          <Field label="תעריף שעתי רצוי (₪)">
-            <Input
-              type="number"
-              min={0}
-              value={s.hourlyTarget}
-              onChange={(e) => actions.settings({ hourlyTarget: +e.target.value || 0 })}
-            />
-          </Field>
-          <Field label="מחיר אחסון רגיל">
-            <Input
-              type="number"
-              step="0.01"
-              value={s.defaultHostPrice}
-              onChange={(e) => actions.settings({ defaultHostPrice: +e.target.value || 48.99 })}
-            />
-          </Field>
-        </div>
-        <Toggle
-          label="מעבר אוטומטי למשימה הבאה"
-          hint="אחרי ״בוצע״ הטיימר ממשיך מיד עם המשימה הבאה"
-          checked={s.autoStartNext}
-          onChange={(v) => actions.settings({ autoStartNext: v })}
-        />
-        <Toggle
-          label="צליל עדין בסוף בלוק"
-          checked={s.sound}
-          onChange={(v) => actions.settings({ sound: v })}
-        />
-        <Toggle
-          label="התראת מערכת בסוף בלוק"
-          hint="מופיעה גם כשאתה בחלון אחר"
-          checked={s.notifications}
-          onChange={async (v) => {
-            if (v && typeof Notification !== "undefined" && Notification.permission !== "granted") {
-              const r = await Notification.requestPermission();
-              if (r !== "granted") return;
-            }
-            actions.settings({ notifications: v });
-          }}
-        />
-        <Field label="בדיקת תקינות אתרים ברקע">
-          <Select
-            value={s.siteCheckEvery ?? "week"}
-            onChange={(v) => actions.settings({ siteCheckEvery: v as typeof s.siteCheckEvery })}
-            options={["week", "day", "hour", "10m", "off"]}
-            labels={{
-              week: "פעם בשבוע",
-              day: "פעם ביום",
-              hour: "פעם בשעה",
-              "10m": "כל 10 דקות",
-              off: "כבויה",
-            }}
+          </div>
+          <Toggle
+            label="תזכורת גיבוי שבועית"
+            hint="פעם בשבוע, כשהאפליקציה פתוחה, תופיע הודעה עם כפתור הורדה"
+            checked={s.backupReminder !== false}
+            onChange={(v) => actions.settings({ backupReminder: v })}
           />
-        </Field>
-      </Card>
-
-      <AccountCard />
-      <GrowConnectCard />
-      <BillingMsgCard />
-
-      <Card className="space-y-3 p-5">
-        <h2 className="flex items-center gap-2 text-[17px] font-bold">
-          <PictureInPicture2 className="size-4" /> פאנל צף
-        </h2>
-        <p className="text-sm leading-relaxed text-[color:var(--focus-muted)]">
-          {pipSupported()
-            ? "הדפדפן שלך תומך בחלון צף אמיתי: הפאנל נשאר מעל כל החלונות במחשב — WordPress, cPanel, Claude, כל תוכנה — כל עוד הדפדפן פתוח. הוא חולק את אותו טיימר ונתונים עם המערכת, בלי השהיה."
-            : "הדפדפן הזה לא תומך בחלון צף מעל כל החלונות (נתמך ב-Chrome ו-Edge במחשב). כאן הפאנל יצוף רק בתוך המערכת."}
-        </p>
-        <Toggle
-          label="פאנל קומפקטי"
-          hint="רק משימה, זמן, השהיה ובוצע"
-          checked={s.pipCompact}
-          onChange={(v) => actions.settings({ pipCompact: v })}
-        />
-      </Card>
-
-      <Card className="space-y-3 p-5">
-        <h2 className="text-[17px] font-bold">גיבוי ונתונים</h2>
-        <p className="text-sm text-[color:var(--focus-muted)]">
-          הנתונים נשמרים בדפדפן הזה במחשב הזה. גבה מדי פעם — ייצוא JSON הוא גיבוי מלא שאפשר לייבא
-          בחזרה.{lastBackup && ` גיבוי אחרון: ${lastBackup}.`}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Btn
-            variant="primary"
-            icon={Download}
-            onClick={() => {
-              exportJSON();
-            }}
-          >
-            גיבוי מלא (JSON)
-          </Btn>
-          <Btn icon={Upload} onClick={() => fileRef.current?.click()}>
-            ייבוא גיבוי
-          </Btn>
-          <Btn variant="outline" icon={Download} onClick={exportCSV}>
-            ייצוא ל-Excel (CSV)
-          </Btn>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="application/json,.json"
-            hidden
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              if (!f) return;
-              try {
-                actions.importJSON(await f.text());
-              } catch {
-                alert("הקובץ לא תקין");
+          <CloudBackups />
+          <div className="flex flex-wrap gap-2 border-t border-[color:var(--focus-border)] pt-3">
+            <Btn size="sm" variant="ghost" icon={Sparkles} onClick={actions.loadDemo}>
+              טען נתוני דוגמה
+            </Btn>
+            <Btn
+              size="sm"
+              variant="danger"
+              icon={Trash2}
+              onClick={() =>
+                confirm("למחוק את כל הנתונים? (אפשר לבטל מיד אחרי)") && actions.reset()
               }
-              e.target.value = "";
-            }}
-          />
-        </div>
-        <Toggle
-          label="תזכורת גיבוי שבועית"
-          hint="פעם בשבוע, כשהאפליקציה פתוחה, תופיע הודעה עם כפתור הורדה"
-          checked={s.backupReminder !== false}
-          onChange={(v) => actions.settings({ backupReminder: v })}
-        />
-        <CloudBackups />
-        <div className="flex flex-wrap gap-2 border-t border-[color:var(--focus-border)] pt-3">
-          <Btn size="sm" variant="ghost" icon={Sparkles} onClick={actions.loadDemo}>
-            טען נתוני דוגמה
-          </Btn>
-          <Btn
-            size="sm"
-            variant="danger"
-            icon={Trash2}
-            onClick={() => confirm("למחוק את כל הנתונים? (אפשר לבטל מיד אחרי)") && actions.reset()}
-          >
-            מחיקת כל הנתונים
-          </Btn>
-        </div>
-      </Card>
-
-      <Card className="p-5">
-        <h2 className="mb-3 text-[17px] font-bold">קיצורי מקלדת</h2>
-        <ShortcutList />
-      </Card>
+            >
+              מחיקת כל הנתונים
+            </Btn>
+          </div>
+        </Card>
+      )}
+      {tab === "help" && (
+        <Card className="p-5">
+          <h2 className="mb-3 text-[17px] font-bold">קיצורי מקלדת</h2>
+          <ShortcutList />
+        </Card>
+      )}
     </div>
   );
 }

@@ -157,6 +157,8 @@ export interface Project {
   doneDate: string;
   /** last uptime check of the live site */
   siteCheck?: SiteCheck;
+  /** stored screenshot of the homepage (taken once, refreshed on demand / monthly) */
+  shot?: { url: string; at: number; via?: string };
   /** when the standing order started */
   soStart: string;
   /** history of standing-order runs */

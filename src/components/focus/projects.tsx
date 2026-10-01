@@ -290,6 +290,7 @@ export function ProjectCard({ p, compact }: { p: Project; compact?: boolean }) {
             id={p.id}
             name={p.name}
             url={p.url}
+            shot={p.shot}
             className="transition-transform duration-300 group-hover:scale-[1.015]"
           />
           <a

@@ -2,13 +2,13 @@ import * as React from "react";
 import { Lock } from "lucide-react";
 import { accentFor } from "./constants";
 import { normUrl } from "./sitecheck";
+import { SHOT_MAX_AGE, canCapture, captureShot, shotFailed } from "./shots";
 
-const shot = (url: string, n: number) =>
+const mshot = (url: string, n: number) =>
   `https://s0.wp.com/mshots/v1/${encodeURIComponent(url)}?w=1000&h=680${n ? `&r=${n}` : ""}`;
 
-/** hosts whose screenshot never arrived — don't hammer the service again this session */
+/** hosts whose live screenshot never arrived — don't hammer the service again this session */
 const noShot = new Set<string>();
-/** hosts whose screenshot already loaded fine this session */
 const okShot = new Set<string>();
 
 function hostOf(url: string) {
@@ -21,24 +21,30 @@ function hostOf(url: string) {
 
 /**
  * A little browser window showing the opening screen of a project's site.
- * The screenshot comes from a public screenshot service (works even for sites that block iframes);
- * the first request for a site can take a few seconds while it is rendered, so we retry quietly.
+ * Normally it shows the screenshot stored for the project (captured once on the server).
+ * If there is none yet, it asks the server to take one; until then — or without the cloud —
+ * it tries a live screenshot service directly.
  */
 export function SitePreview({
   id,
   name,
   url,
+  shot,
   className,
 }: {
   id: string;
   name: string;
   url: string;
+  shot?: { url: string; at: number };
   className?: string;
 }) {
   const host = hostOf(url);
   const accent = accentFor(id);
   const ref = React.useRef<HTMLDivElement>(null);
   const [seen, setSeen] = React.useState(false);
+  const [capturing, setCapturing] = React.useState(false);
+  const [storedOk, setStoredOk] = React.useState(true);
+  // live fallback (mShots in the browser)
   const [tries, setTries] = React.useState(0);
   const [ready, setReady] = React.useState(() => okShot.has(host));
   const [dead, setDead] = React.useState(() => noShot.has(host));
@@ -60,9 +66,24 @@ export function SitePreview({
     return () => io.disconnect();
   }, [seen]);
 
-  // while the service is still rendering it answers with a small placeholder — ask again shortly
+  // no stored screenshot (or an old one) → have the server take one
+  const stale = !shot || Date.now() - shot.at > SHOT_MAX_AGE;
   React.useEffect(() => {
-    if (!seen || ready || dead || tries === 0) return;
+    if (!seen || !host || !stale || !canCapture() || shotFailed(id, url)) return;
+    let dead = false;
+    setCapturing(!shot);
+    captureShot(id, url).finally(() => !dead && setCapturing(false));
+    return () => {
+      dead = true;
+    };
+  }, [seen, host, stale, id, url, shot]);
+
+  const useStored = !!shot && storedOk;
+  const useLive = !useStored && !capturing && (!canCapture() || shotFailed(id, url));
+
+  // the live service answers with a small placeholder while it renders — ask again shortly
+  React.useEffect(() => {
+    if (!useLive || !seen || ready || dead || tries === 0) return;
     if (tries > 6) {
       noShot.add(host);
       setDead(true);
@@ -70,14 +91,22 @@ export function SitePreview({
     }
     const t = setTimeout(() => setTries((n) => n + 1), 3500);
     return () => clearTimeout(t);
-  }, [tries, seen, ready, dead, host]);
+  }, [useLive, tries, seen, ready, dead, host]);
 
-  const loading = seen && !ready && !dead;
+  const showing = useStored || (useLive && ready);
   const initial =
     name
       .replace(/[^\p{L}\p{N}]/gu, "")
       .slice(0, 2)
       .toUpperCase() || "?";
+  const status = !host
+    ? "אין כתובת אתר"
+    : capturing
+      ? "מצלם את האתר…"
+      : useLive && !dead
+        ? "טוען תצוגה…"
+        : "אין תצוגה זמינה";
+  const busy = capturing || (useLive && seen && !ready && !dead);
 
   return (
     <div
@@ -103,10 +132,20 @@ export function SitePreview({
       </div>
       {/* page */}
       <div className="relative aspect-[1000/620] overflow-hidden bg-white">
-        {host && seen && !dead && (
+        {useStored && seen && (
+          <img
+            src={shot!.url}
+            alt=""
+            draggable={false}
+            loading="lazy"
+            className="absolute inset-0 size-full object-cover object-top"
+            onError={() => setStoredOk(false)}
+          />
+        )}
+        {useLive && host && seen && !dead && (
           <img
             key={tries}
-            src={shot(normUrl(url), tries)}
+            src={mshot(normUrl(url), tries)}
             alt=""
             draggable={false}
             referrerPolicy="no-referrer"
@@ -125,7 +164,7 @@ export function SitePreview({
             }}
           />
         )}
-        {!ready && (
+        {!showing && (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center gap-1.5"
             style={{
@@ -139,9 +178,9 @@ export function SitePreview({
               {initial}
             </span>
             <span className="text-[11px] font-medium" style={{ color: accent, opacity: 0.7 }}>
-              {!host ? "אין כתובת אתר" : dead ? "אין תצוגה זמינה" : "מכין תצוגה…"}
+              {status}
             </span>
-            {loading && (
+            {busy && (
               <span className="absolute inset-x-0 bottom-0 h-0.5 overflow-hidden">
                 <i
                   className="block h-full w-1/3 animate-[focus-slide_1.2s_ease-in-out_infinite] rounded-full"

@@ -1,5 +1,17 @@
 import * as React from "react";
-import { ExternalLink, Globe, Monitor, RefreshCw, Smartphone, Plus, X } from "lucide-react";
+import {
+  Camera,
+  ExternalLink,
+  Globe,
+  ImageUp,
+  Monitor,
+  RefreshCw,
+  Smartphone,
+  Plus,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { canCapture, captureShot, uploadShot } from "./shots";
 import { cn } from "@/lib/utils";
 import { C } from "./constants";
 import { actions, projectSO, useDB } from "./store";
@@ -238,6 +250,7 @@ export function SiteCard({ p }: { p: Project }) {
           <IconBtn icon={ExternalLink} label="פתח בכרטיסייה חדשה" />
         </a>
       </div>
+      <ShotRow p={p} />
       {preview && (
         <div className="mt-4">
           <div className="mb-2 flex items-center gap-2">
@@ -279,6 +292,65 @@ export function SiteCard({ p }: { p: Project }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/** the stored homepage screenshot used on the project cards */
+function ShotRow({ p }: { p: Project }) {
+  const [busy, setBusy] = React.useState<"" | "shot" | "up">("");
+  const fileRef = React.useRef<HTMLInputElement>(null);
+  if (!canCapture()) return null;
+  const shoot = async () => {
+    setBusy("shot");
+    const ok = await captureShot(p.id, p.url, true);
+    setBusy("");
+    if (ok) toast.success("צילום המסך עודכן");
+    else toast.error("לא הצלחנו לצלם את האתר — אפשר להעלות צילום מסך משלך");
+  };
+  const upload = async (f: File) => {
+    setBusy("up");
+    const err = await uploadShot(p.id, f);
+    setBusy("");
+    if (err) toast.error(err);
+    else toast.success("צילום המסך נשמר");
+  };
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-[color:var(--focus-border)] pt-3">
+      <div className="h-12 w-20 shrink-0 overflow-hidden rounded-md border border-[color:var(--focus-border)] bg-[var(--focus-bg2)]">
+        {p.shot && <img src={p.shot.url} alt="" className="size-full object-cover object-top" />}
+      </div>
+      <div className="min-w-0 flex-1 text-xs text-[color:var(--focus-muted)]">
+        <div className="font-medium text-[color:var(--focus-foreground)]">תמונת האתר בכרטיס</div>
+        {busy === "shot"
+          ? "מצלם… (עד חצי דקה)"
+          : p.shot
+            ? `צולם ${timeAgo(p.shot.at)}${p.shot.via === "upload" ? " · הועלה ידנית" : ""}`
+            : "עוד אין צילום"}
+      </div>
+      <Btn size="sm" variant="soft" icon={Camera} disabled={!!busy} onClick={shoot}>
+        צלם מחדש
+      </Btn>
+      <Btn
+        size="sm"
+        variant="ghost"
+        icon={ImageUp}
+        disabled={!!busy}
+        onClick={() => fileRef.current?.click()}
+      >
+        {busy === "up" ? "מעלה…" : "העלה צילום"}
+      </Btn>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) void upload(f);
+          e.target.value = "";
+        }}
+      />
+    </div>
   );
 }
 

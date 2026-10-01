@@ -690,6 +690,38 @@ export function allSORuns(db: DB): SOEntry[] {
   return out.sort((a, b) => b.date.localeCompare(a.date));
 }
 
+export interface HostingPaid {
+  /** charged successfully in the window (gross / after Grow fees) */
+  paid: number;
+  net: number;
+  /** what the price list says should come in each month */
+  expected: number;
+  /** active hosted projects with no successful charge in the window */
+  missing: Project[];
+  /** we have any standing-order history at all (otherwise only the price list is meaningful) */
+  hasData: boolean;
+  runs: number;
+}
+/** hosting money that really came in during the last `days` days, next to what is expected */
+export function hostingPaid(db: DB, days = 31): HostingPaid {
+  const from = addDays(todayStr(), -days);
+  const all = allSORuns(db);
+  const recent = all.filter((r) => r.ok && r.date >= from);
+  const active = db.projects.filter(
+    (p) => p.hosted && !["cancelled", "paused"].includes(p.soState),
+  );
+  const paidIds = new Set(recent.map((r) => r.projectId));
+  const round = (n: number) => Math.round(n * 100) / 100;
+  return {
+    paid: round(recent.reduce((s, r) => s + r.sum, 0)),
+    net: round(recent.reduce((s, r) => s + r.net, 0)),
+    expected: round(active.reduce((s, p) => s + (p.hostPrice || 0), 0)),
+    missing: active.filter((p) => !paidIds.has(p.id)),
+    hasData: all.length > 0,
+    runs: recent.length,
+  };
+}
+
 /** what a Grow event means for a project — mutates the draft, returns a short summary */
 function applyGrowToProject(d: DB, p: Project, e: GrowEntry, day: string) {
   const date = day || todayStr();

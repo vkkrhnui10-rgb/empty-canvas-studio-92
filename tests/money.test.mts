@@ -114,3 +114,25 @@ test("grow report helpers: names, people and dates", () => {
   assert.equal(toDate("05/09/26"), "2026-09-05");
   assert.equal(toDate("2026-09-05"), "2026-09-05");
 });
+
+test("hosting: what was really paid in the last month vs the price list", async () => {
+  const { hostingPaid } = await import(`${F}/store.ts`);
+  const day = (n: number) => new Date(Date.now() - n * DAY).toISOString().slice(0, 10);
+  const run = (d: string, ok: boolean, sum: number, net?: number) => ({ id: d + sum, date: d, ok, sum, note: "", net });
+  const db: any = {
+    projects: [
+      proj("a", { hosted: true, hostPrice: 49, soRuns: [run(day(5), true, 49, 47.5), run(day(40), true, 49)] }),
+      proj("b", { hosted: true, hostPrice: 39, soRuns: [run(day(3), false, 39)] }),
+      proj("c", { hosted: true, hostPrice: 59, soState: "cancelled" }),
+      proj("d", { hosted: false }),
+    ],
+    soContacts: [{ id: "x", projectId: "", name: "בלי שיוך", runs: [run(day(10), true, 30)] }],
+  };
+  const h = hostingPaid(db);
+  assert.equal(h.paid, 79); // 49 + unassigned payer 30; the failed run and the old one don't count
+  assert.equal(h.net, 77.5);
+  assert.equal(h.expected, 88); // a + b (c cancelled)
+  assert.deepEqual(h.missing.map((p: any) => p.id), ["b"]);
+  assert.equal(h.hasData, true);
+  assert.equal(hostingPaid({ projects: [proj("e", { hosted: true, hostPrice: 49 })], soContacts: [] } as any).hasData, false);
+});

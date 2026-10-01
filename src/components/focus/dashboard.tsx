@@ -18,7 +18,15 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { C, CLOSED_PROJECT, PRIORITIES, PRIO_COLOR, SITE_BAD, accentFor } from "./constants";
-import { actions, activeTask, computeAlerts, findProject, plannedTasks, useDB } from "./store";
+import {
+  actions,
+  activeTask,
+  computeAlerts,
+  findProject,
+  hostingPaid,
+  plannedTasks,
+  useDB,
+} from "./store";
 import {
   Badge,
   Btn,
@@ -55,9 +63,8 @@ export function Dashboard() {
     (p) => p.hosted && ["failed", "none", "check"].includes(p.soState),
   );
   const balance = db.projects.reduce((s, p) => s + balanceOf(p), 0);
-  const monthly = db.projects
-    .filter((p) => p.hosted && !["cancelled", "paused"].includes(p.soState))
-    .reduce((s, p) => s + p.hostPrice, 0);
+  const host = hostingPaid(db);
+  const monthly = host.hasData ? host.paid : host.expected;
   const active = db.projects.filter((p) => !CLOSED_PROJECT.includes(p.status));
   const planDone = planned.filter((t) => t.status === "done").length;
   const inbox = db.tasks.filter((t) => t.status === "inbox").length;
@@ -75,11 +82,15 @@ export function Dashboard() {
       go: () => nav.go("finances"),
     },
     {
-      l: "אחסון חודשי",
+      l: host.hasData ? "אחסון ששולם החודש" : "אחסון חודשי צפוי",
       v: ils(monthly),
       icon: Receipt,
-      sub: soBad.length ? `${soBad.length} הוראות קבע לטיפול` : "כל הוראות הקבע תקינות",
-      subC: soBad.length ? C.warn : C.ok,
+      sub: !host.hasData
+        ? "לפי מחירון — עוד אין נתוני גבייה"
+        : host.missing.length
+          ? `${host.missing.length} לא חויבו · צפוי ${ils(host.expected)}`
+          : `כולם שילמו · צפוי ${ils(host.expected)}`,
+      subC: host.hasData && host.missing.length ? C.warn : C.ok,
       go: () => nav.go("finances"),
     },
     {
@@ -408,7 +419,15 @@ export function Dashboard() {
           </SectionTitle>
           <div className="divide-y divide-[color:var(--focus-border)]">
             <MoneyRow l="נשאר לגבות" v={ils(balance)} c={balance ? C.warn : C.ok} />
-            <MoneyRow l="אחסון חודשי צפוי" v={ils(monthly)} />
+            {host.hasData && (
+              <MoneyRow
+                l="אחסון ששולם ב-30 יום"
+                v={ils(host.paid)}
+                c={host.paid < host.expected ? C.warn : C.ok}
+              />
+            )}
+            {host.hasData && <MoneyRow l="נטו אחרי עמלות" v={ils(host.net)} />}
+            <MoneyRow l="אחסון חודשי צפוי (מחירון)" v={ils(host.expected)} />
             <MoneyRow l="אחסון שנתי משוער" v={ils(monthly * 12)} />
             <MoneyRow
               l="הוראות קבע תקינות"

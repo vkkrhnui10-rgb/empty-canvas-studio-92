@@ -23,7 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { C, SO_STATES } from "./constants";
-import { actions, computeAlerts, findProject, useDB } from "./store";
+import { actions, computeAlerts, findProject, hostingPaid, projectSO, useDB } from "./store";
 import type { Alert, Cpanel, Project } from "./types";
 import {
   Badge,
@@ -41,7 +41,7 @@ import {
   StatCard,
   Progress,
 } from "./ui";
-import { balanceOf, ils, payState, uid } from "./utils";
+import { balanceOf, daysSince, fmtDate, ils, payState, uid } from "./utils";
 import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
 import { GrowTab, SoContactsTab } from "./growui";
@@ -60,7 +60,8 @@ export function FinancesView() {
   const totPaid = P.reduce((s, p) => s + (p.paid || 0), 0);
   const totBal = P.reduce((s, p) => s + balanceOf(p), 0);
   const hosted = P.filter((p) => p.hosted && !["cancelled", "paused"].includes(p.soState));
-  const monthly = hosted.reduce((s, p) => s + (p.hostPrice || 0), 0);
+  const host = hostingPaid(db);
+  const monthly = host.hasData ? host.paid : host.expected;
   const std = hosted.filter((p) => p.hostPrice === db.settings.defaultHostPrice).length;
   const soOk = P.filter((p) => p.hosted && p.soState === "ok").length;
   const soBad = P.filter((p) => p.hosted && ["failed", "none", "check"].includes(p.soState)).length;
@@ -72,7 +73,13 @@ export function FinancesView() {
   );
 
   const kpis: [string, string, LucideIcon, string?, string?][] = [
-    ["הכנסה שנתית משוערת", ils(monthly * 12), TrendingUp, undefined, "מאחסון בלבד"],
+    [
+      "הכנסה שנתית משוערת",
+      ils(monthly * 12),
+      TrendingUp,
+      undefined,
+      host.hasData ? "מאחסון, לפי מה ששולם בפועל" : "מאחסון, לפי מחירון",
+    ],
     ["סך מחירי בנייה", ils(totBuild), Hammer],
     [
       "סך ששולם",
@@ -98,9 +105,13 @@ export function FinancesView() {
           onClick={() => setTab("collect")}
         />
         <GradientStat
-          label="הכנסה חודשית מאחסון"
+          label={host.hasData ? "אחסון ששולם בפועל (30 יום)" : "הכנסה חודשית מאחסון (מחירון)"}
           value={ils(monthly)}
-          sub={`${hosted.length} אתרים פעילים · ${soBad} הוראות קבע לטיפול`}
+          sub={
+            host.hasData
+              ? `נטו ${ils(host.net)} · צפוי ${ils(host.expected)}${host.missing.length ? ` · ${host.missing.length} לא חויבו` : ""}`
+              : `${hosted.length} אתרים פעילים · ${soBad} הוראות קבע לטיפול`
+          }
           icon={Receipt}
           onClick={() => setTab("hosting")}
         />
@@ -171,9 +182,7 @@ export function FinancesView() {
               <Badge color={p.soState === "ok" ? C.ok : p.soState === "failed" ? C.bad : C.warn}>
                 {SO_STATES[p.soState]}
               </Badge>
-              <span className="w-32 text-xs text-[color:var(--focus-muted)]">
-                נבדק: {p.soChecked || "מעולם"}
-              </span>
+              <PaidLast p={p} />
               {["failed", "none", "check"].includes(p.soState) ? (
                 <SoWhatsAppBtn p={p} size="icon" />
               ) : (
@@ -554,5 +563,28 @@ export function AlertCard({ a }: { a: Alert }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/** when the standing order last actually charged — the real signal, not the status label */
+function PaidLast({ p }: { p: Project }) {
+  const db = useDB();
+  const so = projectSO(db, p);
+  const run = so.runs.find((r) => r.ok);
+  if (!run)
+    return (
+      <span className="w-36 text-xs text-[color:var(--focus-muted)]">
+        {so.runs.length ? "אין חיוב מוצלח" : `נבדק: ${p.soChecked || "מעולם"}`}
+      </span>
+    );
+  const late = daysSince(run.date) > 31;
+  return (
+    <span
+      className="w-36 text-xs"
+      style={{ color: late ? "var(--focus-warning)" : "var(--focus-muted)" }}
+      title={late ? "לא היה חיוב מוצלח בחודש האחרון" : undefined}
+    >
+      שולם {fmtDate(run.date)} · {ils(run.sum)}
+    </span>
   );
 }

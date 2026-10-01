@@ -1,6 +1,6 @@
 import { LEAD_OPEN, NO_MONITOR } from "./constants";
 import { riskRows } from "./risk";
-import type { DB, View } from "./types";
+import type { Alert, DB, View } from "./types";
 import { balanceOf, daysSince, ils, isOpen, todayStr, waLink } from "./utils";
 
 export type BriefKind = "site" | "charge" | "lead" | "pay" | "tasks" | "risk";
@@ -107,3 +107,7 @@ export function briefItems(db: DB): BriefItem[] {
 
   return out;
 }
+
+/** alerts the morning brief already shows (site down, failed charge, payment due) — not repeated on the dashboard */
+export const inBrief = (a: Alert) =>
+  a.id.startsWith("site-down-") || a.id.startsWith("so-failed-") || a.id.startsWith("pay-");

@@ -35,6 +35,7 @@ import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
 import { TaskRow } from "./tasks";
 import { MorningBrief } from "./brief";
+import { inBrief } from "./briefdata";
 
 export function Dashboard() {
   const db = useDB();
@@ -42,7 +43,9 @@ export function Dashboard() {
   const planned = plannedTasks(db);
   const next = activeTask(db);
   const nextP = next ? findProject(db, next.projectId) : undefined;
-  const alerts = computeAlerts(db);
+  const allAlerts = computeAlerts(db);
+  // what the morning brief already lists is not repeated here
+  const alerts = allAlerts.filter((a) => !inBrief(a));
   const doneToday = db.tasks.filter(
     (t) => t.completedAt && new Date(t.completedAt).toDateString() === new Date().toDateString(),
   );
@@ -274,9 +277,9 @@ export function Dashboard() {
         <Card className="p-6 lg:col-span-5">
           <SectionTitle
             action={
-              alerts.length > 0 && (
+              allAlerts.length > 0 && (
                 <LinkAction onClick={() => nav.go("alerts")}>
-                  לכל ההתראות ({alerts.length})
+                  לכל ההתראות ({allAlerts.length})
                 </LinkAction>
               )
             }
@@ -287,7 +290,11 @@ export function Dashboard() {
             <EmptyState
               icon={Sparkles}
               title="הכול תקין"
-              subtitle="אין כרגע משהו שדורש ממך פעולה"
+              subtitle={
+                allAlerts.length
+                  ? "מה שדחוף מופיע בסיכום הבוקר למעלה"
+                  : "אין כרגע משהו שדורש ממך פעולה"
+              }
             />
           ) : (
             <div className="divide-y divide-[color:var(--focus-border)]">

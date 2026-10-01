@@ -21,6 +21,7 @@ import type {
 import { fields as growFields, normPhone, type GrowKind } from "./grow";
 import {
   CLOSED_PROJECT,
+  NO_MONITOR,
   DEFAULT_SO_MSG,
   LEAD_OPEN,
   LEAD_STAGES,
@@ -468,7 +469,7 @@ export function computeAlerts(db: DB): Alert[] {
         projectId: p.id,
         sev: "warn",
       });
-    if (p.url.trim() && p.siteCheck && !p.siteCheck.ok && !CLOSED_PROJECT.includes(p.status))
+    if (p.url.trim() && p.siteCheck && !p.siteCheck.ok && !NO_MONITOR.includes(p.status))
       a.push({
         id: `site-down-${p.id}-${p.siteCheck.downSince ?? p.siteCheck.at}`,
         kind: "site",

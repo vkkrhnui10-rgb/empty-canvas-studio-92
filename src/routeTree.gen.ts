@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiSiteCheckRouteImport } from './routes/api/site-check'
+import { Route as ApiSiteMonitorRouteImport } from './routes/api/site-monitor'
 import { Route as ApiGrowWebhookRouteImport } from './routes/api/grow/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ApiSiteCheckRoute = ApiSiteCheckRouteImport.update({
   path: '/api/site-check',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSiteMonitorRoute = ApiSiteMonitorRouteImport.update({
+  id: '/api/site-monitor',
+  path: '/api/site-monitor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGrowWebhookRoute = ApiGrowWebhookRouteImport.update({
   id: '/api/grow/webhook',
   path: '/api/grow/webhook',
@@ -32,30 +38,39 @@ const ApiGrowWebhookRoute = ApiGrowWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/site-check': typeof ApiSiteCheckRoute
+  '/api/site-monitor': typeof ApiSiteMonitorRoute
   '/api/grow/webhook': typeof ApiGrowWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/site-check': typeof ApiSiteCheckRoute
+  '/api/site-monitor': typeof ApiSiteMonitorRoute
   '/api/grow/webhook': typeof ApiGrowWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/site-check': typeof ApiSiteCheckRoute
+  '/api/site-monitor': typeof ApiSiteMonitorRoute
   '/api/grow/webhook': typeof ApiGrowWebhookRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/site-check' | '/api/grow/webhook'
+  fullPaths: '/' | '/api/site-check' | '/api/site-monitor' | '/api/grow/webhook'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/site-check' | '/api/grow/webhook'
-  id: '__root__' | '/' | '/api/site-check' | '/api/grow/webhook'
+  to: '/' | '/api/site-check' | '/api/site-monitor' | '/api/grow/webhook'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/site-check'
+    | '/api/site-monitor'
+    | '/api/grow/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiSiteCheckRoute: typeof ApiSiteCheckRoute
+  ApiSiteMonitorRoute: typeof ApiSiteMonitorRoute
   ApiGrowWebhookRoute: typeof ApiGrowWebhookRoute
 }
 
@@ -75,6 +90,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSiteCheckRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/site-monitor': {
+      id: '/api/site-monitor'
+      path: '/api/site-monitor'
+      fullPath: '/api/site-monitor'
+      preLoaderRoute: typeof ApiSiteMonitorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/grow/webhook': {
       id: '/api/grow/webhook'
       path: '/api/grow/webhook'
@@ -88,6 +110,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiSiteCheckRoute: ApiSiteCheckRoute,
+  ApiSiteMonitorRoute: ApiSiteMonitorRoute,
   ApiGrowWebhookRoute: ApiGrowWebhookRoute,
 }
 export const routeTree = rootRouteImport

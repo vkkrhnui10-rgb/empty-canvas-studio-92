@@ -81,6 +81,8 @@ export const OPEN_STATUSES: TaskStatus[] = [
 ];
 export const ACTIVE_STATUSES: TaskStatus[] = ["inbox", "todo", "today", "doing"];
 export const CLOSED_PROJECT = ["הושק", "הוקפא", "תחזוקה"];
+/** statuses whose site is not watched — launched sites are exactly the ones to watch */
+export const NO_MONITOR = ["הוקפא"];
 export const SITE_BAD = ["קיימת תקלה", "מושבת"];
 export const SO_STALE_DAYS = 35;
 export const WAITING_STALE_DAYS = 7;

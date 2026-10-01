@@ -8,6 +8,7 @@
 import { useSyncExternalStore } from "react";
 import type { RealtimeChannel, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { actions, getState, hasLocalData, onLocalChange, replaceFromRemote } from "./store";
 
 export type SyncStatus = "off" | "loading" | "synced" | "saving" | "offline" | "error";
@@ -221,6 +222,28 @@ function listen() {
     .subscribe();
 }
 
+/** a result from the scheduled server-side site monitor */
+function applySiteCheck(pl: Record<string, unknown>) {
+  const id = String(pl.projectId ?? "");
+  const p = getState().projects.find((x) => x.id === id);
+  if (!p) return;
+  if (p.siteCheck && p.siteCheck.at >= Number(pl.at)) return; // we already have something newer
+  const wasUp = p.siteCheck ? p.siteCheck.ok : true;
+  actions.recordSiteCheck(id, {
+    at: Number(pl.at) || Date.now(),
+    ok: !!pl.ok,
+    status: Number(pl.status) || 0,
+    ms: Number(pl.ms) || 0,
+    error: pl.error ? String(pl.error) : undefined,
+    cause: pl.cause ? String(pl.cause) : undefined,
+    expires: pl.expires ? String(pl.expires) : undefined,
+  });
+  if (!pl.ok && wasUp)
+    toast.error(`האתר לא עובד: ${p.name}${pl.error ? ` — ${String(pl.error)}` : ""}`, {
+      duration: 10000,
+    });
+}
+
 let draining = false;
 /** apply any Grow events that haven't been processed yet */
 export async function drainGrow() {
@@ -235,7 +258,10 @@ export async function drainGrow() {
       .order("received_at", { ascending: true })
       .limit(100);
     if (error || !data?.length) return;
-    for (const ev of data) actions.applyGrow(ev);
+    for (const ev of data) {
+      if (ev.kind === "site_check") applySiteCheck(ev.payload as Record<string, unknown>);
+      else actions.applyGrow(ev);
+    }
     await supabase
       .from("grow_events")
       .update({ processed_at: new Date().toISOString() })

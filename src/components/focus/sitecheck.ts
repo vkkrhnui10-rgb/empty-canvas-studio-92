@@ -1,7 +1,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CLOSED_PROJECT } from "./constants";
+import { NO_MONITOR } from "./constants";
 import { actions, getState } from "./store";
 import type { SiteCheck } from "./types";
 
@@ -72,7 +72,7 @@ async function sweep() {
   const gap = EVERY_MS[every];
   if (typeof document !== "undefined" && document.hidden) return;
   for (const p of [...getState().projects]) {
-    if (!p.url.trim() || CLOSED_PROJECT.includes(p.status)) continue;
+    if (!p.url.trim() || NO_MONITOR.includes(p.status)) continue;
     // a site that is currently down is rechecked at least hourly, so the alert clears once it is back
     const g = p.siteCheck && !p.siteCheck.ok ? Math.min(gap, EVERY_MS.hour) : gap;
     if (Date.now() - (p.siteCheck?.at ?? 0) < g - 30_000) continue;

@@ -62,7 +62,18 @@ import {
   Textarea,
   ProjectAvatar,
 } from "./ui";
-import { balanceOf, daysSince, fmtDate, ils, isOpen, payState, timeAgo, uid } from "./utils";
+import { minutesByProject } from "./profit";
+import {
+  balanceOf,
+  daysSince,
+  fmtDate,
+  fmtMin,
+  ils,
+  isOpen,
+  payState,
+  timeAgo,
+  uid,
+} from "./utils";
 import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
 import { checkSite, normUrl } from "./sitecheck";
@@ -1076,6 +1087,30 @@ function LinkField({
   );
 }
 
+/** time spent on the project and what the build paid per hour */
+function HourlyLine({ p }: { p: Project }) {
+  const db = useDB();
+  const min = minutesByProject(db).get(p.id) ?? 0;
+  if (min < 1) return null;
+  const rate = p.buildPrice > 0 && min >= 30 ? Math.round(p.buildPrice / (min / 60)) : 0;
+  const target = db.settings.hourlyTarget;
+  return (
+    <div className="flex items-center justify-between rounded-xl bg-[var(--focus-bg2)] p-3 text-sm">
+      <span className="text-[color:var(--focus-muted)]">עבדת {fmtMin(min)} על הפרויקט</span>
+      {rate > 0 ? (
+        <span
+          className="font-bold tabular-nums"
+          style={{ color: target && rate < target ? C.warn : C.ok }}
+        >
+          {ils(rate)} לשעה
+        </span>
+      ) : (
+        <span className="text-xs text-[color:var(--focus-muted)]">עוד מעט זמן לחישוב</span>
+      )}
+    </div>
+  );
+}
+
 function MoneyTab({ p }: { p: Project }) {
   const [amount, setAmount] = React.useState("");
   const [note, setNote] = React.useState("");
@@ -1112,6 +1147,7 @@ function MoneyTab({ p }: { p: Project }) {
             {ils(bal)}
           </span>
         </div>
+        <HourlyLine p={p} />
       </Card>
       <Card className="p-5">
         <div className="mb-3 font-semibold">רישום תשלום שהתקבל</div>

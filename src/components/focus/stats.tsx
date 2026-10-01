@@ -13,13 +13,23 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Activity, Globe, PieChart as PieIcon, Repeat, Sparkles, Wallet } from "lucide-react";
+import {
+  Activity,
+  Clock,
+  Globe,
+  PieChart as PieIcon,
+  Repeat,
+  Sparkles,
+  Wallet,
+} from "lucide-react";
 import { C, NO_MONITOR, PROJ_STATUS, SITE_TYPES, SO_STATES } from "./constants";
 import { useDB } from "./store";
 import type { Project, SiteType } from "./types";
 import { Card, EmptyState, PageHeader, StatCard } from "./ui";
 import { ChartCard, ChartTip, tick } from "./income";
-import { balanceOf, ils } from "./utils";
+import { profitByType, profitRows } from "./profit";
+import { useNav } from "./nav";
+import { balanceOf, fmtMin, ils } from "./utils";
 
 const HEB_SHORT = [
   "ינו׳",
@@ -86,7 +96,7 @@ function HBars({
   if (!data.length) return <Empty />;
   return (
     <ResponsiveContainer>
-      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 4, left: 4, bottom: 0 }}>
+      <BarChart data={data} layout="vertical" margin={{ top: 0, right: 4, left: 40, bottom: 0 }}>
         <XAxis type="number" reversed hide />
         <YAxis
           type="category"
@@ -127,6 +137,163 @@ const count = (items: string[]): Row[] => {
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 };
+
+/** what each project paid per hour of tracked focus time */
+function ProfitSection() {
+  const db = useDB();
+  const nav = useNav();
+  const target = db.settings.hourlyTarget;
+  const rows = profitRows(db).sort((a, b) => b.perHour - a.perHour);
+  const byType = profitByType(rows, SITE_TYPES);
+  const hours = rows.reduce((s, r) => s + r.hours, 0);
+  const price = rows.reduce((s, r) => s + r.price, 0);
+  const avg = hours ? Math.round(price / hours) : 0;
+  const best = [...byType].sort((a, b) => b.perHour - a.perHour)[0];
+  const max = rows[0]?.perHour || 1;
+
+  return (
+    <div className="mb-5">
+      <div className="mb-3 flex items-center gap-2 text-lg font-bold">
+        <Clock className="size-5 text-[color:var(--focus-primary)]" /> רווחיות לשעה
+        <span className="text-xs font-normal text-[color:var(--focus-muted)]">
+          מחיר בנייה ÷ זמן פוקוס שנמדד
+        </span>
+      </div>
+      {rows.length === 0 ? (
+        <Card>
+          <EmptyState
+            icon={Clock}
+            title="עוד אין מספיק נתונים"
+            subtitle="צריך פרויקט עם מחיר בנייה ולפחות חצי שעה של טיימר פוקוס על משימות שלו"
+          />
+        </Card>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-4 lg:col-span-3 sm:grid-cols-3">
+            <StatCard
+              label="ממוצע לשעה"
+              value={ils(avg)}
+              icon={Clock}
+              color={target && avg < target ? C.warn : C.ok}
+              sub={target ? `יעד: ${ils(target)} לשעה` : "קבע תעריף רצוי בהגדרות"}
+            />
+            <StatCard
+              label="שעות שנמדדו"
+              value={fmtMin(hours * 60)}
+              icon={Activity}
+              sub={`${rows.length} פרויקטים`}
+            />
+            <StatCard
+              label="הסוג הכי משתלם"
+              value={best ? best.type.replace("אתר ", "") : "—"}
+              icon={Sparkles}
+              color={best ? TYPE_COLOR[best.type] : undefined}
+              sub={best ? `${ils(best.perHour)} לשעה` : undefined}
+            />
+          </div>
+
+          <ChartCard title="₪ לשעה לפי סוג אתר" sub="סכום מחירים ÷ סכום שעות" h="h-56">
+            <HBars
+              data={byType.map((t) => ({
+                name: t.type.replace("אתר ", ""),
+                value: Math.round(t.perHour),
+                color: TYPE_COLOR[t.type],
+              }))}
+              fmt={ils}
+            />
+          </ChartCard>
+
+          <Card className="p-4 lg:col-span-2">
+            <div className="mb-3">
+              <div className="font-bold">כל הפרויקטים, מהמשתלם ללא משתלם</div>
+              <div className="text-xs text-[color:var(--focus-muted)]">
+                {target
+                  ? `באדום/כתום: מתחת ל-${ils(target)} לשעה`
+                  : "קבע תעריף רצוי בהגדרות כדי לסמן פרויקטים מתחת ליעד"}
+              </div>
+            </div>
+            <div className="max-h-72 space-y-1 overflow-y-auto pe-1">
+              {rows.map((r) => {
+                const low = target > 0 && r.perHour < target;
+                const col = low ? C.warn : C.ok;
+                return (
+                  <button
+                    key={r.p.id}
+                    onClick={() => nav.go("project", r.p.id)}
+                    className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-right text-sm hover:bg-[var(--focus-bg2)]"
+                  >
+                    <span className="w-32 shrink-0 truncate font-semibold">{r.p.name}</span>
+                    <span className="hidden w-16 shrink-0 text-xs text-[color:var(--focus-muted)] sm:block">
+                      {r.p.siteType.replace("אתר ", "")}
+                    </span>
+                    <span className="relative h-2 min-w-10 flex-1 overflow-hidden rounded-full bg-[var(--focus-bg2)]">
+                      <i
+                        className="absolute inset-y-0 right-0 rounded-full"
+                        style={{
+                          width: `${Math.max(4, (r.perHour / max) * 100)}%`,
+                          background: col,
+                        }}
+                      />
+                    </span>
+                    <span className="w-24 shrink-0 text-end text-xs tabular-nums text-[color:var(--focus-muted)]">
+                      {fmtMin(r.min)} · {ils(r.price)}
+                    </span>
+                    <span
+                      className="w-20 shrink-0 text-end font-bold tabular-nums"
+                      style={{ color: col }}
+                    >
+                      {ils(r.perHour)}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          {target > 0 && byType.length > 0 && (
+            <Card className="p-4 lg:col-span-3">
+              <div className="mb-3 font-bold">מה לתמחר מחדש</div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {byType.map((t) => {
+                  const avgPrice = Math.round(t.price / t.n);
+                  const suggested = Math.round((t.avgHours * target) / 50) * 50;
+                  const gap = suggested - avgPrice;
+                  return (
+                    <div key={t.type} className="rounded-xl bg-[var(--focus-bg2)] p-3 text-sm">
+                      <div className="mb-1 font-bold" style={{ color: TYPE_COLOR[t.type] }}>
+                        {t.type}
+                      </div>
+                      <div className="text-xs text-[color:var(--focus-muted)]">
+                        בממוצע {fmtMin(t.avgHours * 60)} · מחיר ממוצע {ils(avgPrice)}
+                      </div>
+                      <div className="mt-2">
+                        כדי להגיע ל-{ils(target)} לשעה:{" "}
+                        <b className="tabular-nums">{ils(suggested)}</b>
+                      </div>
+                      <div
+                        className="text-xs font-semibold"
+                        style={{ color: gap > 0 ? C.warn : C.ok }}
+                      >
+                        {gap > 50
+                          ? `כדאי להעלות בכ-${ils(gap)}`
+                          : gap < -50
+                            ? "אתה מעל היעד"
+                            : "מתומחר נכון"}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-3 text-xs text-[color:var(--focus-muted)]">
+                הנתונים מבוססים רק על הזמן שמדדת בטיימר; עבודה שלא נמדדה מנפחת את התוצאה.
+              </p>
+            </Card>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function StatsView() {
   const db = useDB();
@@ -246,6 +413,8 @@ export function StatsView() {
           sub={avgBuild ? `מחיר בנייה ממוצע ${ils(avgBuild)}` : undefined}
         />
       </div>
+
+      <ProfitSection />
 
       <div className="grid gap-5 lg:grid-cols-3">
         <ChartCard title="סוגי אתרים" sub="WordPress · AI · משולב">

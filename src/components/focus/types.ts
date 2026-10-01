@@ -231,6 +231,8 @@ export interface Activity {
 export interface Settings {
   workHours: number;
   defaultHostPrice: number;
+  /** desired hourly rate (₪) — used to flag under-priced projects and suggest prices */
+  hourlyTarget: number;
   defaultFocusMin: number;
   breakMin: number;
   sound: boolean;

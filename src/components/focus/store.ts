@@ -60,6 +60,7 @@ export const HANDLED = Number.MAX_SAFE_INTEGER;
 export const defaultSettings: DB["settings"] = {
   workHours: 6,
   defaultHostPrice: 48.99,
+  hourlyTarget: 150,
   defaultFocusMin: 45,
   breakMin: 5,
   sound: true,

@@ -133,6 +133,14 @@ export function SettingsView() {
               onChange={(e) => actions.settings({ breakMin: +e.target.value || 5 })}
             />
           </Field>
+          <Field label="תעריף שעתי רצוי (₪)">
+            <Input
+              type="number"
+              min={0}
+              value={s.hourlyTarget}
+              onChange={(e) => actions.settings({ hourlyTarget: +e.target.value || 0 })}
+            />
+          </Field>
           <Field label="מחיר אחסון רגיל">
             <Input
               type="number"

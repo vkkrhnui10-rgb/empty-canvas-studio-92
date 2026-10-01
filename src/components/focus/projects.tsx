@@ -34,7 +34,6 @@ import { cn } from "@/lib/utils";
 import {
   AI_SYSTEMS,
   C,
-  CLOSED_PROJECT,
   PROJECT_TEMPLATES,
   PROJ_STATUS,
   SITE_BAD,
@@ -81,6 +80,9 @@ const siteColor = (s: string) =>
 const soColor = (s: SOState) =>
   s === "ok" ? C.ok : s === "failed" ? C.bad : s === "cancelled" ? C.sub : C.warn;
 
+/** "active" in the projects list = everything except frozen — launched and maintenance sites are live clients */
+const FROZEN = ["הוקפא"];
+
 /* ============================ Projects list ============================ */
 export function ProjectsView() {
   const db = useDB();
@@ -91,7 +93,7 @@ export function ProjectsView() {
   const view = db.settings.projectsView;
 
   let list = db.projects;
-  if (status === "__active") list = list.filter((p) => !CLOSED_PROJECT.includes(p.status));
+  if (status === "__active") list = list.filter((p) => !FROZEN.includes(p.status));
   else if (status !== "__all") list = list.filter((p) => p.status === status);
   if (q)
     list = list.filter((p) =>
@@ -104,7 +106,7 @@ export function ProjectsView() {
     <div className="mx-auto max-w-[1240px] px-4 py-6 sm:px-8 sm:py-8">
       <PageHeader
         title="פרויקטים"
-        subtitle={`${db.projects.length} פרויקטים · ${db.projects.filter((p) => !CLOSED_PROJECT.includes(p.status)).length} פעילים`}
+        subtitle={`${db.projects.length} פרויקטים · ${db.projects.filter((p) => !FROZEN.includes(p.status)).length} פעילים`}
         actions={
           <Btn variant="primary" icon={Plus} onClick={() => nav.editProject("new")}>
             פרויקט חדש

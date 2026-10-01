@@ -28,7 +28,15 @@ export async function checkSite(url: string): Promise<SiteCheck> {
         });
         if (res.ok) {
           const j = (await res.json()) as Omit<SiteCheck, "at">;
-          return { at, ok: !!j.ok, status: j.status ?? 0, ms: j.ms ?? 0, error: j.error };
+          return {
+            at,
+            ok: !!j.ok,
+            status: j.status ?? 0,
+            ms: j.ms ?? 0,
+            error: j.error,
+            cause: j.cause,
+            expires: j.expires,
+          };
         }
       }
     } catch {
@@ -67,7 +75,7 @@ async function sweep() {
     const r = await checkOnce(p.url);
     actions.recordSiteCheck(p.id, r);
     if (!r.ok && wasUp) {
-      const msg = `האתר לא עובד: ${p.name}`;
+      const msg = `האתר לא עובד: ${p.name}${r.error ? ` — ${r.error}` : ""}`;
       toast.error(msg, { duration: 10000 });
       if (
         getState().settings.notifications &&

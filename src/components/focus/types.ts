@@ -118,6 +118,10 @@ export interface SiteCheck {
   error?: string;
   /** when the site was first seen down in the current outage */
   downSince?: number;
+  /** why it is down: expired | dns | ssl | timeout | server | http */
+  cause?: string;
+  /** domain expiry date (ISO) when the lookup found one */
+  expires?: string;
 }
 
 export interface Project {

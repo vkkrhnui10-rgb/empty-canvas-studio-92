@@ -63,6 +63,8 @@ export const defaultSettings: DB["settings"] = {
   workHours: 6,
   defaultHostPrice: 48.99,
   hourlyTarget: 150,
+  growPayoutDay: 10,
+  growMonthlyFee: 19.94,
   defaultFocusMin: 45,
   breakMin: 5,
   sound: true,
@@ -690,35 +692,78 @@ export function allSORuns(db: DB): SOEntry[] {
   return out.sort((a, b) => b.date.localeCompare(a.date));
 }
 
-export interface HostingPaid {
-  /** charged successfully in the window (gross / after Grow fees) */
-  paid: number;
+export interface HostingMonth {
+  /** yyyy-mm */
+  key: string;
+  gross: number;
   net: number;
+  runs: number;
+}
+export interface HostingPaid {
+  /** this calendar month so far */
+  thisMonth: HostingMonth;
+  lastMonth: HostingMonth;
+  /**
+   * the next bank credit from Grow: the net of one calendar month minus the monthly fee,
+   * transferred on the payout day of the following month
+   */
+  next: HostingMonth & { date: string; amount: number; partial: boolean };
+  fee: number;
   /** what the price list says should come in each month */
   expected: number;
-  /** active hosted projects with no successful charge in the window */
+  /** active hosted projects with no successful charge in the last 31 days */
   missing: Project[];
   /** we have any standing-order history at all (otherwise only the price list is meaningful) */
   hasData: boolean;
-  runs: number;
 }
-/** hosting money that really came in during the last `days` days, next to what is expected */
-export function hostingPaid(db: DB, days = 31): HostingPaid {
-  const from = addDays(todayStr(), -days);
+const monthKey = (d: string) => d.slice(0, 7);
+const shiftMonth = (key: string, n: number) => {
+  const [y, m] = key.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+};
+/**
+ * Hosting money as it really flows through Grow: each charge lands (minus the per-charge fee)
+ * in the Grow account, the operational fee is taken at month end, and on the payout day
+ * the previous month's balance moves to the bank.
+ */
+export function hostingPaid(db: DB, today = todayStr()): HostingPaid {
+  const round = (n: number) => Math.round(n * 100) / 100;
   const all = allSORuns(db);
-  const recent = all.filter((r) => r.ok && r.date >= from);
+  const ok = all.filter((r) => r.ok);
+  const month = (key: string): HostingMonth => {
+    const rs = ok.filter((r) => monthKey(r.date) === key);
+    return {
+      key,
+      gross: round(rs.reduce((s, r) => s + r.sum, 0)),
+      net: round(rs.reduce((s, r) => s + r.net, 0)),
+      runs: rs.length,
+    };
+  };
+  const cur = monthKey(today);
+  const payDay = db.settings?.growPayoutDay || 10;
+  const fee = db.settings?.growMonthlyFee ?? 19.94;
+  const beforePayout = Number(today.slice(8, 10)) < payDay;
+  const nextKey = beforePayout ? shiftMonth(cur, -1) : cur;
+  const nm = month(nextKey);
   const active = db.projects.filter(
     (p) => p.hosted && !["cancelled", "paused"].includes(p.soState),
   );
-  const paidIds = new Set(recent.map((r) => r.projectId));
-  const round = (n: number) => Math.round(n * 100) / 100;
+  const from = addDays(today, -31);
+  const paidIds = new Set(ok.filter((r) => r.date >= from).map((r) => r.projectId));
   return {
-    paid: round(recent.reduce((s, r) => s + r.sum, 0)),
-    net: round(recent.reduce((s, r) => s + r.net, 0)),
+    thisMonth: month(cur),
+    lastMonth: month(shiftMonth(cur, -1)),
+    next: {
+      ...nm,
+      date: `${shiftMonth(nextKey, 1)}-${String(payDay).padStart(2, "0")}`,
+      amount: nm.runs ? Math.max(0, round(nm.net - fee)) : 0,
+      partial: !beforePayout,
+    },
+    fee,
     expected: round(active.reduce((s, p) => s + (p.hostPrice || 0), 0)),
     missing: active.filter((p) => !paidIds.has(p.id)),
     hasData: all.length > 0,
-    runs: recent.length,
   };
 }
 

@@ -41,7 +41,7 @@ import {
   StatCard,
   Progress,
 } from "./ui";
-import { balanceOf, daysSince, fmtDate, ils, payState, uid } from "./utils";
+import { balanceOf, daysSince, fmtDate, heMonth, ils, payState, uid } from "./utils";
 import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
 import { GrowTab, SoContactsTab } from "./growui";
@@ -61,7 +61,7 @@ export function FinancesView() {
   const totBal = P.reduce((s, p) => s + balanceOf(p), 0);
   const hosted = P.filter((p) => p.hosted && !["cancelled", "paused"].includes(p.soState));
   const host = hostingPaid(db);
-  const monthly = host.hasData ? host.paid : host.expected;
+  const monthly = host.hasData ? host.lastMonth.gross || host.thisMonth.gross : host.expected;
   const std = hosted.filter((p) => p.hostPrice === db.settings.defaultHostPrice).length;
   const soOk = P.filter((p) => p.hosted && p.soState === "ok").length;
   const soBad = P.filter((p) => p.hosted && ["failed", "none", "check"].includes(p.soState)).length;
@@ -105,11 +105,15 @@ export function FinancesView() {
           onClick={() => setTab("collect")}
         />
         <GradientStat
-          label={host.hasData ? "אחסון ששולם בפועל (30 יום)" : "הכנסה חודשית מאחסון (מחירון)"}
-          value={ils(monthly)}
+          label={
+            host.hasData
+              ? `זיכוי קרוב לבנק — ${fmtDate(host.next.date)}`
+              : "הכנסה חודשית מאחסון (מחירון)"
+          }
+          value={ils(host.hasData ? host.next.amount : host.expected)}
           sub={
             host.hasData
-              ? `נטו ${ils(host.net)} · צפוי ${ils(host.expected)}${host.missing.length ? ` · ${host.missing.length} לא חויבו` : ""}`
+              ? `${heMonth(host.next.key)}${host.next.partial ? " עד עכשיו" : ""}: ${host.next.runs} חיובים, ${ils(host.next.gross)} ברוטו − עמלות − ${ils(host.fee)} עמלה תפעולית${host.missing.length ? ` · ${host.missing.length} לא חויבו` : ""}`
               : `${hosted.length} אתרים פעילים · ${soBad} הוראות קבע לטיפול`
           }
           icon={Receipt}

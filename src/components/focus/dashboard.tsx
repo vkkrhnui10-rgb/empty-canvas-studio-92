@@ -38,7 +38,7 @@ import {
   SectionTitle,
   StatCard,
 } from "./ui";
-import { balanceOf, fmtMin, greeting, ils, isOpen, todayStr } from "./utils";
+import { balanceOf, fmtDate, fmtMin, greeting, heMonth, ils, isOpen, todayStr } from "./utils";
 import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
 import { TaskRow } from "./tasks";
@@ -64,7 +64,7 @@ export function Dashboard() {
   );
   const balance = db.projects.reduce((s, p) => s + balanceOf(p), 0);
   const host = hostingPaid(db);
-  const monthly = host.hasData ? host.paid : host.expected;
+  const monthly = host.hasData ? host.lastMonth.gross || host.thisMonth.gross : host.expected;
   const active = db.projects.filter((p) => !CLOSED_PROJECT.includes(p.status));
   const planDone = planned.filter((t) => t.status === "done").length;
   const inbox = db.tasks.filter((t) => t.status === "inbox").length;
@@ -82,14 +82,12 @@ export function Dashboard() {
       go: () => nav.go("finances"),
     },
     {
-      l: host.hasData ? "אחסון ששולם החודש" : "אחסון חודשי צפוי",
-      v: ils(monthly),
+      l: host.hasData ? `זיכוי לבנק ב-${fmtDate(host.next.date)}` : "אחסון חודשי צפוי",
+      v: ils(host.hasData ? host.next.amount : host.expected),
       icon: Receipt,
       sub: !host.hasData
         ? "לפי מחירון — עוד אין נתוני גבייה"
-        : host.missing.length
-          ? `${host.missing.length} לא חויבו · צפוי ${ils(host.expected)}`
-          : `כולם שילמו · צפוי ${ils(host.expected)}`,
+        : `${heMonth(host.next.key)}${host.next.partial ? " עד עכשיו" : ""} · ${host.next.runs} חיובים${host.missing.length ? ` · ${host.missing.length} לא חויבו` : ""}`,
       subC: host.hasData && host.missing.length ? C.warn : C.ok,
       go: () => nav.go("finances"),
     },
@@ -420,13 +418,22 @@ export function Dashboard() {
           <div className="divide-y divide-[color:var(--focus-border)]">
             <MoneyRow l="נשאר לגבות" v={ils(balance)} c={balance ? C.warn : C.ok} />
             {host.hasData && (
-              <MoneyRow
-                l="אחסון ששולם ב-30 יום"
-                v={ils(host.paid)}
-                c={host.paid < host.expected ? C.warn : C.ok}
-              />
+              <>
+                <MoneyRow
+                  l={`זיכוי לבנק ב-${fmtDate(host.next.date)} (${heMonth(host.next.key)}${host.next.partial ? " עד עכשיו" : ""})`}
+                  v={ils(host.next.amount)}
+                  c={C.ok}
+                />
+                <MoneyRow
+                  l={`אחסון ש${host.next.partial ? "חויב" : "נכנס"} ב${heMonth(host.thisMonth.key)}`}
+                  v={`${ils(host.thisMonth.gross)} (נטו ${ils(host.thisMonth.net)})`}
+                />
+                <MoneyRow
+                  l={`${heMonth(host.lastMonth.key)}`}
+                  v={`${ils(host.lastMonth.gross)} (נטו ${ils(host.lastMonth.net)})`}
+                />
+              </>
             )}
-            {host.hasData && <MoneyRow l="נטו אחרי עמלות" v={ils(host.net)} />}
             <MoneyRow l="אחסון חודשי צפוי (מחירון)" v={ils(host.expected)} />
             <MoneyRow l="אחסון שנתי משוער" v={ils(monthly * 12)} />
             <MoneyRow

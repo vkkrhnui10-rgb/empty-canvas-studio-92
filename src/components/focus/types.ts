@@ -235,6 +235,10 @@ export interface Settings {
   defaultHostPrice: number;
   /** desired hourly rate (₪) — used to flag under-priced projects and suggest prices */
   hourlyTarget: number;
+  /** Grow moves last month's balance to the bank on this day of the month */
+  growPayoutDay: number;
+  /** Grow's monthly operational fee, taken at the end of each month */
+  growMonthlyFee: number;
   /** remind me once a week to download a backup file */
   backupReminder?: boolean;
   defaultFocusMin: number;

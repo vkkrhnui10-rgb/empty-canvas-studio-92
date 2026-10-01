@@ -197,3 +197,9 @@ export const waLink = (phone: string, text = "") => {
   if (d.startsWith("0")) d = "972" + d.slice(1);
   return `https://wa.me/${d}${text ? `?text=${encodeURIComponent(text)}` : ""}`;
 };
+
+/** "2026-09" → "ספטמבר" */
+export const heMonth = (key: string) => {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("he-IL", { month: "long" });
+};

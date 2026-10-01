@@ -161,6 +161,28 @@ export function SettingsView() {
                   onChange={(e) => actions.settings({ defaultHostPrice: +e.target.value || 48.99 })}
                 />
               </Field>
+              <Field label="יום הזיכוי לבנק מ-Grow" hint="Grow מעבירה את יתרת החודש הקודם">
+                <Input
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={s.growPayoutDay}
+                  onChange={(e) =>
+                    actions.settings({
+                      growPayoutDay: Math.min(28, Math.max(1, +e.target.value || 10)),
+                    })
+                  }
+                />
+              </Field>
+              <Field label="עמלה תפעולית חודשית ב-Grow (₪)">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min={0}
+                  value={s.growMonthlyFee}
+                  onChange={(e) => actions.settings({ growMonthlyFee: +e.target.value || 0 })}
+                />
+              </Field>
             </div>
             <Toggle
               label="מעבר אוטומטי למשימה הבאה"

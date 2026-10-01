@@ -10,14 +10,14 @@ export const Route = createFileRoute("/b/$id")({
       { title: "שאלון אפיון לאתר" },
       { name: "description", content: "כמה שאלות קצרות כדי שנוכל לבנות לכם את האתר." },
       { name: "robots", content: "noindex, nofollow" },
-      { name: "theme-color", content: "#f1f2ed" },
+      { name: "theme-color", content: "#ffffff" },
       { property: "og:title", content: "שאלון אפיון לאתר" },
       { property: "og:description", content: "כמה שאלות קצרות, בערך 5 דקות." },
     ],
     links: [
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap",
       },
     ],
   }),
@@ -28,9 +28,9 @@ function BriefRoute() {
   const { id } = Route.useParams();
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
-  if (!mounted) return <div style={{ minHeight: "100vh", background: "#f1f2ed" }} />;
+  if (!mounted) return <div style={{ minHeight: "100vh", background: "#ffffff" }} />;
   return (
-    <React.Suspense fallback={<div style={{ minHeight: "100vh", background: "#f1f2ed" }} />}>
+    <React.Suspense fallback={<div style={{ minHeight: "100vh", background: "#ffffff" }} />}>
       <BriefPage id={id} />
     </React.Suspense>
   );

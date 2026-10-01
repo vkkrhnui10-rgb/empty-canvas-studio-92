@@ -231,6 +231,8 @@ export interface Settings {
   notifications: boolean;
   autoStartNext: boolean;
   projectsView: "cards" | "list" | "kanban";
+  /** show a browser-window preview of each site on the project cards */
+  projectsPreview: boolean;
   taskFilter: string;
   sidebarCollapsed: boolean;
   pipCompact: boolean;

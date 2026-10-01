@@ -64,6 +64,7 @@ export const defaultSettings: DB["settings"] = {
   notifications: false,
   autoStartNext: true,
   projectsView: "cards",
+  projectsPreview: true,
   taskFilter: "open",
   sidebarCollapsed: false,
   pipCompact: false,

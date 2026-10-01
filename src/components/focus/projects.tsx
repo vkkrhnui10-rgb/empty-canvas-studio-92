@@ -68,6 +68,7 @@ import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
 import { checkSite, normUrl } from "./sitecheck";
 import { TaskRow } from "./tasks";
+import { SitePreview } from "./sitepreview";
 
 const siteColor = (s: string) =>
   SITE_BAD.includes(s)
@@ -129,6 +130,15 @@ export function ProjectsView() {
             labels={{ __active: "פעילים", __all: "הכול" }}
           />
         )}
+        {view === "cards" && (
+          <Btn
+            variant={db.settings.projectsPreview ? "soft" : "outline"}
+            icon={Monitor}
+            onClick={() => actions.settings({ projectsPreview: !db.settings.projectsPreview })}
+          >
+            תצוגת אתר
+          </Btn>
+        )}
         <Segmented
           value={view}
           onChange={(v) => actions.settings({ projectsView: v })}
@@ -189,7 +199,7 @@ export function ProjectsView() {
           <EmptyState icon={Search} title="לא נמצאו פרויקטים" />
         </Card>
       ) : view === "cards" ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {list.map((p) => (
             <ProjectCard key={p.id} p={p} />
           ))}
@@ -229,52 +239,93 @@ export function ProjectCard({ p, compact }: { p: Project; compact?: boolean }) {
   const cp = db.cpanels.find((c) => c.id === p.cpanelId);
   const accent = accentFor(p.id);
   const pinned = p.notes.find((n) => n.pinned);
+  const preview = !compact && db.settings.projectsPreview && !!p.url.trim();
+  const sc = siteColor(p.siteState);
   return (
-    <Card onClick={() => nav.go("project", p.id)} className="p-5">
-      <div className="flex items-start gap-3">
-        <ProjectAvatar id={p.id} name={p.name} size={compact ? 34 : 42} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5 text-[16px] font-bold">
-            <span className="truncate">{p.name}</span>
-            {pinned && <Pin className="size-3 shrink-0 text-[color:var(--focus-primary)]" />}
-          </div>
-          <div className="mt-0.5 truncate text-[13px] text-[color:var(--focus-muted)]">
-            {p.client || "—"} · {p.siteType}
-            {cp && ` · ${cp.name}`}
-          </div>
+    <Card
+      onClick={() => nav.go("project", p.id)}
+      className="group relative cursor-pointer overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_14px_34px_-14px_rgb(22_24_61/0.35)]"
+    >
+      {/* accent strip */}
+      <span
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ background: `linear-gradient(90deg, ${accent}, transparent)` }}
+      />
+      {preview && (
+        <div className="relative px-4 pt-5">
+          <SitePreview
+            id={p.id}
+            name={p.name}
+            url={p.url}
+            className="transition-transform duration-300 group-hover:scale-[1.015]"
+          />
+          <a
+            href={normUrl(p.url)}
+            target="_blank"
+            rel="noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            title="פתח את האתר"
+            className="absolute left-7 top-8 flex size-7 items-center justify-center rounded-lg bg-[var(--focus-card)]/90 text-[color:var(--focus-muted)] opacity-0 shadow transition-opacity hover:text-[color:var(--focus-primary)] group-hover:opacity-100"
+          >
+            <ExternalLink className="size-3.5" />
+          </a>
         </div>
-        <Badge color={siteColor(p.siteState)}>{p.siteState}</Badge>
-      </div>
-      {!compact && (
-        <>
-          <div className="mt-4 truncate rounded-lg bg-[var(--focus-bg2)] px-3 py-2 text-[14px]">
-            <span className="text-[color:var(--focus-muted)]">הבא: </span>
-            {next ? (
-              next.title
-            ) : (
-              <span className="text-[color:var(--focus-warning)]">אין משימה הבאה</span>
-            )}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            <Badge>{p.status}</Badge>
-            <Badge>{open.length} פתוחות</Badge>
-            {bal > 0 && <Badge color={C.warn}>יתרה {ils(bal)}</Badge>}
-            {p.hosted && (
-              <Badge color={soColor(p.soState)}>
-                {ils(p.hostPrice)} · {SO_STATES[p.soState]}
-              </Badge>
-            )}
-          </div>
-          {all.length > 0 && (
-            <div className="mt-4 flex items-center gap-3 text-[12px] text-[color:var(--focus-muted)]">
-              <Progress className="flex-1" value={(done / all.length) * 100} color={accent} />
-              <span className="tabular-nums">
-                {done}/{all.length}
-              </span>
-            </div>
-          )}
-        </>
       )}
+      <div className={cn("p-4", preview ? "pt-4" : compact ? "pt-5" : "pt-6")}>
+        <div className="flex items-start gap-3">
+          <ProjectAvatar id={p.id} name={p.name} size={compact ? 34 : 40} />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 text-[16px] font-bold leading-tight">
+              <span className="truncate">{p.name}</span>
+              {pinned && <Pin className="size-3 shrink-0 text-[color:var(--focus-primary)]" />}
+            </div>
+            <div className="mt-1 truncate text-[13px] text-[color:var(--focus-muted)]">
+              {p.client || "—"} · {p.siteType}
+              {cp && ` · ${cp.name}`}
+            </div>
+          </div>
+          <span
+            className="mt-0.5 flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+            style={{ color: sc, background: `color-mix(in oklab, ${sc} 12%, transparent)` }}
+          >
+            <i className="size-1.5 rounded-full" style={{ background: sc }} />
+            {p.siteState}
+          </span>
+        </div>
+        {!compact && (
+          <>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              <Badge color={C.primary}>{p.status}</Badge>
+              {p.hosted && (
+                <Badge color={soColor(p.soState)}>
+                  {ils(p.hostPrice)} · {SO_STATES[p.soState]}
+                </Badge>
+              )}
+              {bal > 0 && <Badge color={C.warn}>יתרה {ils(bal)}</Badge>}
+            </div>
+            <div className="mt-3 flex items-center gap-2 truncate rounded-lg bg-[var(--focus-bg2)] px-3 py-2 text-[13.5px]">
+              <span className="shrink-0 text-[color:var(--focus-muted)]">הבא:</span>
+              {next ? (
+                <span className="truncate">{next.title}</span>
+              ) : (
+                <span className="text-[color:var(--focus-warning)]">אין משימה הבאה</span>
+              )}
+            </div>
+            <div className="mt-3 flex items-center gap-3 text-[12px] text-[color:var(--focus-muted)]">
+              {all.length > 0 ? (
+                <>
+                  <Progress className="flex-1" value={(done / all.length) * 100} color={accent} />
+                  <span className="tabular-nums">
+                    {done}/{all.length} משימות
+                  </span>
+                </>
+              ) : (
+                <span>אין משימות עדיין</span>
+              )}
+            </div>
+          </>
+        )}
+      </div>
     </Card>
   );
 }

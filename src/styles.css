@@ -349,6 +349,14 @@ body {
   animation-duration: 34s;
   animation-direction: alternate-reverse;
 }
+@keyframes focus-slide {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
 @keyframes focus-drift {
   0% {
     transform: translate3d(0, 0, 0) scale(1);

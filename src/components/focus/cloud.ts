@@ -244,6 +244,23 @@ function applySiteCheck(pl: Record<string, unknown>) {
     });
 }
 
+/** a client finished the website questionnaire */
+function applyBriefEvent(pl: Record<string, unknown>) {
+  const b = actions.applyBrief(pl);
+  if (!b) return;
+  const who = b.answers?.business || b.business || b.client;
+  toast.success(`${who} מילא/ה את שאלון האפיון`, {
+    duration: 12000,
+    action: { label: "פתח", onClick: () => (window.location.hash = `#/briefs/${b.id}`) },
+  });
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted")
+      new Notification("אפיון חדש מולא", { body: who });
+  } catch {
+    /* ignore */
+  }
+}
+
 let draining = false;
 /** apply any Grow events that haven't been processed yet */
 export async function drainGrow() {
@@ -260,6 +277,7 @@ export async function drainGrow() {
     if (error || !data?.length) return;
     for (const ev of data) {
       if (ev.kind === "site_check") applySiteCheck(ev.payload as Record<string, unknown>);
+      else if (ev.kind === "brief") applyBriefEvent(ev.payload as Record<string, unknown>);
       else actions.applyGrow(ev);
     }
     await supabase

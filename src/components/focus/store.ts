@@ -2,8 +2,10 @@ import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import type { OrderRow, ReportRow } from "./growreport";
 import { nameKey, samePerson } from "./growreport";
+import { briefId, cleanAnswers } from "./briefcore";
 import type {
   Alert,
+  Brief,
   Cpanel,
   DB,
   GrowEntry,
@@ -83,6 +85,7 @@ const emptyDB = (): DB => ({
   projects: [],
   cpanels: [],
   leads: [],
+  briefs: [],
   growLog: [],
   soContacts: [],
   plan: { date: todayStr(), ids: [], closed: false },
@@ -235,6 +238,7 @@ function migrate(raw: any): DB {
     leads: (raw.leads || []).map((l: any) => newLead({ ...l, notes: l.notes || [] })),
     sessions: (raw.sessions || []).map((s: { projectId?: string }) => ({ projectId: "", ...s })),
     activity: raw.activity || [],
+    briefs: Array.isArray(raw.briefs) ? raw.briefs : [],
     growLog: raw.growLog || [],
     soContacts: Array.isArray(raw.soContacts) ? raw.soContacts : [],
   };
@@ -1366,6 +1370,118 @@ export const actions = {
         d.leads = d.leads.filter((l) => l.id !== id);
       }),
     );
+  },
+  /* ---------------- website briefs ---------------- */
+  createBrief(p: {
+    client: string;
+    business?: string;
+    leadId?: string;
+    projectId?: string;
+  }): Brief {
+    const b: Brief = {
+      id: briefId(),
+      client: p.client.trim(),
+      business: (p.business || "").trim(),
+      leadId: p.leadId || undefined,
+      projectId: p.projectId || undefined,
+      created: Date.now(),
+      status: "sent",
+    };
+    update((d) => {
+      d.briefs.unshift(b);
+      if (b.leadId) {
+        const l = d.leads.find((x) => x.id === b.leadId);
+        l?.notes.unshift({ id: uid(), txt: "נשלח שאלון אפיון", at: Date.now(), kind: "system" });
+      }
+      if (b.projectId) log(d, b.projectId, "נוצר קישור לשאלון אפיון");
+    });
+    return b;
+  },
+  patchBrief(id: string, patch: Partial<Brief>) {
+    update((d) => {
+      const b = d.briefs.find((x) => x.id === id);
+      if (b) Object.assign(b, patch);
+    });
+  },
+  deleteBrief(id: string) {
+    undoable("האפיון נמחק", () =>
+      update((d) => {
+        d.briefs = d.briefs.filter((b) => b.id !== id);
+      }),
+    );
+  },
+  /** the client finished the questionnaire (arrives through the cloud inbox) */
+  applyBrief(pl: Record<string, unknown>): Brief | undefined {
+    const id = String(pl.briefId ?? "");
+    const b0 = state.briefs.find((x) => x.id === id);
+    if (!b0) return;
+    const at = Number(pl.at) || Date.now();
+    if (b0.submittedAt && b0.submittedAt >= at) return;
+    const files = (Array.isArray(pl.files) ? pl.files : [])
+      .filter((f: Record<string, unknown>) => f && typeof f.path === "string")
+      .map((f: Record<string, unknown>) => ({
+        path: String(f.path),
+        name: String(f.name ?? "file"),
+        kind: f.kind === "logo" ? ("logo" as const) : ("image" as const),
+        size: Number(f.size) || 0,
+        type: String(f.type ?? ""),
+      }));
+    update((d) => {
+      const b = d.briefs.find((x) => x.id === id);
+      if (!b) return;
+      b.answers = cleanAnswers(pl.answers);
+      b.files = files;
+      b.status = "done";
+      b.submittedAt = at;
+      b.seenAt = undefined;
+      if (b.leadId) {
+        const l = d.leads.find((x) => x.id === b.leadId);
+        l?.notes.unshift({
+          id: uid(),
+          txt: "הלקוח מילא את שאלון האפיון",
+          at: Date.now(),
+          kind: "system",
+        });
+      }
+      if (b.projectId) log(d, b.projectId, "הלקוח מילא את שאלון האפיון");
+    });
+    return state.briefs.find((x) => x.id === id);
+  },
+  /** filled brief → project in "אפיון" (or attach to the lead's project) */
+  briefToProject(id: string): string | undefined {
+    const b = state.briefs.find((x) => x.id === id);
+    if (!b) return;
+    if (b.projectId && findProject(state, b.projectId)) return b.projectId;
+    const lead = b.leadId ? state.leads.find((l) => l.id === b.leadId) : undefined;
+    if (lead?.projectId && findProject(state, lead.projectId)) {
+      const pid = lead.projectId;
+      update((d) => {
+        const x = d.briefs.find((y) => y.id === id);
+        if (x) x.projectId = pid;
+      });
+      return pid;
+    }
+    const a = b.answers;
+    const p = newProject({
+      name: a?.business || b.business || b.client,
+      client: a?.contactName || b.client,
+      phone: a?.phone || lead?.phone || "",
+      email: a?.email || lead?.email || "",
+      url: a?.domain || "",
+      status: "אפיון",
+      startDate: todayStr(),
+    });
+    update((d) => {
+      d.projects.unshift(p);
+      const x = d.briefs.find((y) => y.id === id);
+      if (x) x.projectId = p.id;
+      if (lead) {
+        const l = d.leads.find((y) => y.id === lead.id);
+        if (l && !l.projectId) l.projectId = p.id;
+      }
+      log(d, p.id, `הפרויקט נוצר מאפיון: ${b.client}`);
+    });
+    return p.id;
   },
   /** won lead → real project (keeps contact details + conversation as a note) */
   convertLead(id: string): string | undefined {

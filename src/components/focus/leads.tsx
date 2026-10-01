@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   CalendarClock,
+  ClipboardList,
   FolderKanban,
   KanbanSquare,
   List,
@@ -31,6 +32,7 @@ import {
 import { actions, newLead, useDB } from "./store";
 import type { Lead, LeadNote, LeadStage, SiteType } from "./types";
 import { estimateStats, quoteFor } from "./profit";
+import { NewBriefModal } from "./briefs";
 import {
   Badge,
   Btn,
@@ -831,6 +833,7 @@ function LeadDrawer({ l, onClose }: { l: Lead; onClose: () => void }) {
 
         {/* outcome */}
         <div className="space-y-2 border-t border-[color:var(--focus-border)] pt-5">
+          <LeadBriefBtn l={l} />
           {l.projectId ? (
             <Btn
               variant="soft"
@@ -946,5 +949,32 @@ function ContactBtn({
       <Icon className="size-4" />
       {label}
     </a>
+  );
+}
+
+/** send the website questionnaire, or open it once there is one */
+function LeadBriefBtn({ l }: { l: Lead }) {
+  const db = useDB();
+  const nav = useNav();
+  const [open, setOpen] = React.useState(false);
+  const b = db.briefs.find((x) => x.leadId === l.id);
+  if (b)
+    return (
+      <Btn
+        variant="soft"
+        icon={ClipboardList}
+        className="w-full"
+        onClick={() => nav.go("briefs", b.id)}
+      >
+        {b.status === "done" ? "האפיון מולא — פתח" : "אפיון נשלח — ממתין ללקוח"}
+      </Btn>
+    );
+  return (
+    <>
+      <Btn variant="outline" icon={ClipboardList} className="w-full" onClick={() => setOpen(true)}>
+        שלח שאלון אפיון ללקוח
+      </Btn>
+      <NewBriefModal open={open} onClose={() => setOpen(false)} leadId={l.id} />
+    </>
   );
 }

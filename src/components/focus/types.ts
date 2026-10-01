@@ -253,12 +253,71 @@ export interface Settings {
   soMsgTemplate: string;
 }
 
+/* ---------------- website brief (questionnaire sent to a client) ---------------- */
+export interface BriefService {
+  name: string;
+  desc: string;
+}
+export interface BriefSite {
+  url: string;
+  note: string;
+}
+export interface BriefFile {
+  path: string;
+  name: string;
+  kind: "logo" | "image";
+  size: number;
+  type: string;
+}
+export interface BriefAnswers {
+  contactName: string;
+  business: string;
+  tagline: string;
+  audience: string;
+  goals: string[];
+  about: string;
+  unique: string;
+  services: BriefService[];
+  colorMode: "logo" | "custom" | "you";
+  colors: string[];
+  styles: string[];
+  styleNote: string;
+  sites: BriefSite[];
+  avoid: string;
+  noPhotos: boolean;
+  photosLink: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  address: string;
+  hours: string;
+  social: string;
+  domain: string;
+  notes: string;
+}
+export interface Brief {
+  /** long random id — also the secret in the client's link */
+  id: string;
+  client: string;
+  business: string;
+  leadId?: string;
+  projectId?: string;
+  created: number;
+  status: "sent" | "done";
+  submittedAt?: number;
+  /** when I opened the filled brief (unseen ones show in the morning brief) */
+  seenAt?: number;
+  answers?: BriefAnswers;
+  files?: BriefFile[];
+}
+
 export interface DB {
   version: number;
   tasks: Task[];
   projects: Project[];
   cpanels: Cpanel[];
   leads: Lead[];
+  briefs: Brief[];
   growLog: GrowEntry[];
   soContacts: SOContact[];
   plan: { date: string; ids: string[]; closed: boolean };
@@ -282,6 +341,7 @@ export type View =
   | "project"
   | "cpanels"
   | "leads"
+  | "briefs"
   | "finances"
   | "alerts"
   | "settings";

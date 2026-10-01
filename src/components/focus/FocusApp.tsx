@@ -4,6 +4,7 @@ import {
   PieChart,
   Bell,
   CalendarCheck,
+  ClipboardList,
   FolderKanban,
   Inbox,
   Keyboard,
@@ -65,6 +66,7 @@ const AlertsView = React.lazy(() => import("./money").then((m) => ({ default: m.
 const CpanelsView = React.lazy(() => import("./money").then((m) => ({ default: m.CpanelsView })));
 const FinancesView = React.lazy(() => import("./money").then((m) => ({ default: m.FinancesView })));
 const LeadsView = React.lazy(() => import("./leads").then((m) => ({ default: m.LeadsView })));
+const BriefsView = React.lazy(() => import("./briefs").then((m) => ({ default: m.BriefsView })));
 import { CommandPalette, SettingsView, ShortcutsDialog } from "./settings";
 import { QuickAddDialog, TaskDrawer } from "./tasks";
 import { InlineFloating, useFloating } from "./floating";
@@ -81,6 +83,7 @@ const NAV: { v: View; l: string; i: typeof LayoutDashboard; group?: string }[] =
   { v: "weekly", l: "סיכום שבועי", i: BarChart3 },
   { v: "stats", l: "נתונים", i: PieChart },
   { v: "leads", l: "לידים", i: UserPlus, group: "העסק שלך" },
+  { v: "briefs", l: "אפיונים", i: ClipboardList },
   { v: "cpanels", l: "פאנלי cPanel", i: Server },
   { v: "finances", l: "כספים", i: Wallet },
   { v: "alerts", l: "התראות", i: Bell },
@@ -104,12 +107,16 @@ function parseHash(): { view: View; projectId: string | null } {
     "project",
     "cpanels",
     "leads",
+    "briefs",
     "finances",
     "alerts",
     "settings",
   ];
   const view = (views.includes(v as View) ? v : "dashboard") as View;
-  return { view, projectId: view === "project" || view === "leads" ? (id ?? null) : null };
+  return {
+    view,
+    projectId: view === "project" || view === "leads" || view === "briefs" ? (id ?? null) : null,
+  };
 }
 
 export default function FocusApp() {
@@ -186,7 +193,7 @@ function Shell() {
   }, []);
 
   const go = React.useCallback((v: View, pid?: string | null) => {
-    const withId = (v === "project" || v === "leads") && pid;
+    const withId = (v === "project" || v === "leads" || v === "briefs") && pid;
     const hash = withId ? `#/${v}/${pid}` : `#/${v}`;
     if (window.location.hash !== hash) window.location.hash = hash;
     setRoute({ view: v, projectId: withId ? pid : null });
@@ -278,6 +285,7 @@ function Shell() {
   const leadsDue = db.leads.filter(
     (l) => LEAD_OPEN.includes(l.stage) && l.followUp && l.followUp <= todayStr(),
   ).length;
+  const briefsNew = db.briefs.filter((b) => b.status === "done" && !b.seenAt).length;
   const isFocus = view === "focus";
   const collapsed = db.settings.sidebarCollapsed;
 
@@ -310,6 +318,9 @@ function Shell() {
     case "leads":
       page = <LeadsView openId={projectId} />;
       break;
+    case "briefs":
+      page = <BriefsView openId={projectId} />;
+      break;
     case "cpanels":
       page = <CpanelsView />;
       break;
@@ -336,7 +347,9 @@ function Shell() {
             ? inboxCount
             : n.v === "leads"
               ? leadsDue
-              : 0;
+              : n.v === "briefs"
+                ? briefsNew
+                : 0;
       return (
         <React.Fragment key={n.v}>
           {n.group && !compact && (

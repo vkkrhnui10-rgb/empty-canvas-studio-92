@@ -90,11 +90,16 @@ export function ProjectsView() {
   const [q, setQ] = React.useState("");
   const [status, setStatus] = React.useState("__active");
   const [dragId, setDragId] = React.useState<string | null>(null);
+  const [type, setType] = React.useState<string>("__all");
   const view = db.settings.projectsView;
 
   let list = db.projects;
   if (status === "__active") list = list.filter((p) => !FROZEN.includes(p.status));
   else if (status !== "__all") list = list.filter((p) => p.status === status);
+  const base = list; // status-filtered, before the type filter — for the counts on the chips
+  const typeCount = (t: string) => base.filter((p) => t === "__all" || p.siteType === t).length;
+  const typeOf = (p: Project) => type === "__all" || p.siteType === type;
+  list = list.filter(typeOf);
   if (q)
     list = list.filter((p) =>
       `${p.name} ${p.client} ${p.url} ${p.phone} ${p.email}`
@@ -152,6 +157,22 @@ export function ProjectsView() {
         />
       </div>
 
+      {db.projects.length > 0 && (
+        <div className="mb-4">
+          <Segmented
+            value={type}
+            onChange={setType}
+            options={[
+              { value: "__all", label: `הכל (${typeCount("__all")})` },
+              ...SITE_TYPES.map((t) => ({
+                value: t,
+                label: `${t.replace("אתר ", "")} (${typeCount(t)})`,
+              })),
+            ]}
+          />
+        </div>
+      )}
+
       {db.projects.length === 0 ? (
         <Card>
           <EmptyState
@@ -169,7 +190,7 @@ export function ProjectsView() {
         <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6">
           {PROJ_STATUS.map((s) => {
             const ps = db.projects.filter(
-              (p) => p.status === s && (!q || `${p.name} ${p.client}`.includes(q)),
+              (p) => p.status === s && typeOf(p) && (!q || `${p.name} ${p.client}`.includes(q)),
             );
             return (
               <div

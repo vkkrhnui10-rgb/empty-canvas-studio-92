@@ -1,6 +1,7 @@
 import * as React from "react";
 import {
   BarChart3,
+  PieChart,
   Bell,
   CalendarCheck,
   FolderKanban,
@@ -46,6 +47,7 @@ import { Dashboard } from "./dashboard";
 import { Planner } from "./planner";
 import { FocusView, useTick } from "./focus";
 import { TasksView, WeeklyView } from "./lists";
+import { StatsView } from "./stats";
 import { ProjectDrawer, ProjectPage, ProjectsView } from "./projects";
 import { AlertsView, CpanelsView, FinancesView } from "./money";
 import { CommandPalette, SettingsView, ShortcutsDialog } from "./settings";
@@ -63,6 +65,7 @@ const NAV: { v: View; l: string; i: typeof LayoutDashboard; group?: string }[] =
   { v: "tasks", l: "כל המשימות", i: ListTodo },
   { v: "projects", l: "פרויקטים", i: FolderKanban },
   { v: "weekly", l: "סיכום שבועי", i: BarChart3 },
+  { v: "stats", l: "נתונים", i: PieChart },
   { v: "leads", l: "לידים", i: UserPlus, group: "העסק שלך" },
   { v: "cpanels", l: "פאנלי cPanel", i: Server },
   { v: "finances", l: "כספים", i: Wallet },
@@ -80,6 +83,7 @@ function parseHash(): { view: View; projectId: string | null } {
     "today",
     "focus",
     "weekly",
+    "stats",
     "inbox",
     "tasks",
     "projects",
@@ -270,6 +274,9 @@ function Shell() {
       break;
     case "weekly":
       page = <WeeklyView />;
+      break;
+    case "stats":
+      page = <StatsView />;
       break;
     case "inbox":
       page = <TasksView inbox />;

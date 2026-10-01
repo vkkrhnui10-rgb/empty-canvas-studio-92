@@ -80,13 +80,15 @@ export function incomeItems(db: DB): IncomeItem[] {
 }
 
 const sumBy = (l: IncomeItem[], k: "gross" | "net") => l.reduce((s, e) => s + e[k], 0);
-const tick = { fill: "var(--focus-muted)", fontSize: 11 };
+export const tick = { fill: "var(--focus-muted)", fontSize: 11 };
 
-function ChartTip({
+export function ChartTip({
   active,
   payload,
   label,
+  fmt = ils,
 }: {
+  fmt?: (n: number) => string;
   active?: boolean;
   payload?: { name: string; value: number; color?: string; fill?: string }[];
   label?: string;
@@ -103,20 +105,21 @@ function ChartTip({
         <div key={p.name} className="flex items-center gap-2">
           <span className="size-2 rounded-full" style={{ background: p.color || p.fill }} />
           <span>{p.name}</span>
-          <b className="ms-auto ps-3 tabular-nums">{ils(p.value)}</b>
+          <b className="ms-auto ps-3 tabular-nums">{fmt(p.value)}</b>
         </div>
       ))}
       {payload.length > 1 && (
         <div className="mt-1 flex border-t border-[color:var(--focus-border)] pt-1 font-bold">
           <span>סה״כ</span>
-          <span className="ms-auto tabular-nums">{ils(total)}</span>
+          <span className="ms-auto tabular-nums">{fmt(total)}</span>
         </div>
       )}
     </div>
   );
 }
 
-function ChartCard({
+export function ChartCard({
+  h = "h-64",
   title,
   sub,
   children,
@@ -126,6 +129,7 @@ function ChartCard({
   sub?: string;
   children: React.ReactNode;
   className?: string;
+  h?: string;
 }) {
   return (
     <Card className={`p-4 ${className ?? ""}`}>
@@ -134,7 +138,7 @@ function ChartCard({
         {sub && <div className="text-xs text-[color:var(--focus-muted)]">{sub}</div>}
       </div>
       {/* recharts lays out left→right; time runs right→left in Hebrew, so axes are reversed below */}
-      <div dir="ltr" className="h-64 w-full">
+      <div dir="ltr" className={`${h} w-full`}>
         {children}
       </div>
     </Card>

@@ -271,6 +271,7 @@ export type View =
   | "today"
   | "focus"
   | "weekly"
+  | "stats"
   | "inbox"
   | "tasks"
   | "projects"

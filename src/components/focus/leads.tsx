@@ -20,9 +20,17 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LEAD_INTERESTS, LEAD_OPEN, LEAD_SOURCES, LEAD_STAGES, leadStage } from "./constants";
+import {
+  LEAD_INTERESTS,
+  LEAD_OPEN,
+  LEAD_SOURCES,
+  LEAD_STAGES,
+  SITE_TYPES,
+  leadStage,
+} from "./constants";
 import { actions, newLead, useDB } from "./store";
-import type { Lead, LeadNote, LeadStage } from "./types";
+import type { Lead, LeadNote, LeadStage, SiteType } from "./types";
+import { estimateStats, quoteFor } from "./profit";
 import {
   Badge,
   Btn,
@@ -40,7 +48,7 @@ import {
   Textarea,
 } from "./ui";
 import { useNav } from "./nav";
-import { addDays, fmtDate, ils, timeAgo, todayStr, waLink } from "./utils";
+import { addDays, fmtDate, fmtMin, ils, timeAgo, todayStr, waLink } from "./utils";
 
 const NOTE_KINDS: { v: NonNullable<LeadNote["kind"]>; l: string; i: LucideIcon }[] = [
   { v: "note", l: "הערה", i: MessageSquareText },
@@ -522,6 +530,75 @@ function FollowPicker({ value, onChange }: { value: string; onChange: (v: string
 }
 
 /* ------------------------------ drawer ------------------------------ */
+/** "what should I ask for?" — from the time your finished sites of this type really took */
+function QuoteHelper({ l }: { l: Lead }) {
+  const db = useDB();
+  const guess: SiteType = /ai|lovable|claude|base44|בינה/i.test(l.interest)
+    ? "אתר AI"
+    : "אתר WordPress";
+  const [type, setType] = React.useState<SiteType>(guess);
+  const q = quoteFor(db, type, SITE_TYPES);
+  const est = estimateStats(db, SITE_TYPES).find((e) => e.type === type);
+  return (
+    <div className="rounded-[14px] border border-[color:var(--focus-border)] bg-[var(--focus-bg2)] p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-[15px] font-bold">כמה לבקש</div>
+        <div className="flex gap-1">
+          {SITE_TYPES.slice(0, 3).map((t) => (
+            <button
+              key={t}
+              onClick={() => setType(t)}
+              className={cn(
+                "h-7 rounded-full px-2.5 text-xs font-semibold",
+                type === t
+                  ? "bg-[var(--focus-primary)] text-[color:var(--focus-primary-foreground)]"
+                  : "bg-[var(--focus-card)] text-[color:var(--focus-muted)]",
+              )}
+            >
+              {t.replace("אתר ", "")}
+            </button>
+          ))}
+        </div>
+      </div>
+      {q.n === 0 ? (
+        <p className="text-sm text-[color:var(--focus-muted)]">
+          עוד אין נתונים על {type}: צריך פרויקט עם מחיר בנייה וזמן שנמדד בטיימר.
+        </p>
+      ) : (
+        <div className="space-y-1 text-sm leading-relaxed">
+          <p>
+            {type} לוקח לך בממוצע <b>{fmtMin(q.avgHours * 60)}</b> ({q.n} פרויקטים), ובממוצע גבית{" "}
+            <b>{ils(q.avgPrice)}</b>.
+          </p>
+          {q.minPrice > 0 && (
+            <p>
+              כדי להגיע ל-{ils(q.target)} לשעה — תגבה לפחות{" "}
+              <b className="text-[color:var(--focus-primary)]">{ils(q.minPrice)}</b>.
+            </p>
+          )}
+          {est && Math.abs(est.ratio - 1) >= 0.15 && (
+            <p className="text-xs text-[color:var(--focus-muted)]">
+              בדרך כלל אתה מעריך {est.ratio > 1 ? "בחסר" : "ביתר"} ב-
+              {Math.round(Math.abs(est.ratio - 1) * 100)}%.
+            </p>
+          )}
+          {l.budget > 0 && q.minPrice > 0 && (
+            <p
+              className="text-xs font-semibold"
+              style={{
+                color: l.budget < q.minPrice ? "var(--focus-warning)" : "var(--focus-success)",
+              }}
+            >
+              התקציב שלו {ils(l.budget)} —{" "}
+              {l.budget < q.minPrice ? `חסרים ${ils(q.minPrice - l.budget)} ליעד` : "מעל המינימום"}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function LeadDrawer({ l, onClose }: { l: Lead; onClose: () => void }) {
   const nav = useNav();
   const [txt, setTxt] = React.useState("");
@@ -594,6 +671,8 @@ function LeadDrawer({ l, onClose }: { l: Lead; onClose: () => void }) {
             <div className="mt-2 text-xs text-[color:var(--focus-muted)]">סיבה: {l.lostReason}</div>
           )}
         </div>
+
+        {LEAD_OPEN.includes(l.stage) && <QuoteHelper l={l} />}
 
         {/* conversation */}
         <div>

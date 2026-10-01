@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { Toaster } from "sonner";
 import { useSiteMonitor } from "./sitecheck";
+import { useBackupReminder } from "./backup";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -105,7 +106,9 @@ export default function FocusApp() {
     hydrate();
     startCloud();
   }, []);
-  useSiteMonitor(hydrated && (!cloud.enabled || (cloud.ready && !!cloud.session)));
+  const live = hydrated && (!cloud.enabled || (cloud.ready && !!cloud.session));
+  useSiteMonitor(live);
+  useBackupReminder(live);
   const body =
     !hydrated || (cloud.enabled && !cloud.ready) ? (
       <Splash />

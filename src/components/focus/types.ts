@@ -233,6 +233,8 @@ export interface Settings {
   defaultHostPrice: number;
   /** desired hourly rate (₪) — used to flag under-priced projects and suggest prices */
   hourlyTarget: number;
+  /** remind me once a week to download a backup file */
+  backupReminder?: boolean;
   defaultFocusMin: number;
   breakMin: number;
   sound: boolean;

@@ -19,17 +19,20 @@ import {
   Globe,
   PieChart as PieIcon,
   Repeat,
+  MessageCircle,
+  ShieldAlert,
   Sparkles,
   Wallet,
 } from "lucide-react";
 import { C, NO_MONITOR, PROJ_STATUS, SITE_TYPES, SO_STATES } from "./constants";
 import { useDB } from "./store";
 import type { Project, SiteType } from "./types";
-import { Card, EmptyState, PageHeader, StatCard } from "./ui";
+import { Badge, Card, EmptyState, PageHeader, ProjectAvatar, StatCard } from "./ui";
 import { ChartCard, ChartTip, tick } from "./income";
-import { profitByType, profitRows } from "./profit";
+import { estimateStats, profitByType, profitRows } from "./profit";
 import { useNav } from "./nav";
-import { balanceOf, fmtMin, ils } from "./utils";
+import { riskRows } from "./risk";
+import { balanceOf, fmtMin, ils, waLink } from "./utils";
 
 const HEB_SHORT = [
   "ינו׳",
@@ -138,6 +141,69 @@ const count = (items: string[]): Row[] => {
     .sort((a, b) => b.value - a.value);
 };
 
+/** hosted customers that look like they are about to leave */
+function RiskSection() {
+  const db = useDB();
+  const nav = useNav();
+  const rows = riskRows(db);
+  const total = rows.reduce((s, r) => s + r.monthly, 0);
+  return (
+    <div className="mb-5">
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-lg font-bold">
+        <ShieldAlert className="size-5 text-[color:var(--focus-warning)]" /> לקוחות בסיכון
+        <span className="text-xs font-normal text-[color:var(--focus-muted)]">
+          חיוב שנכשל פעמיים · 90 יום בלי קשר · מקור שמבטל הרבה
+        </span>
+      </div>
+      {rows.length === 0 ? (
+        <Card className="p-4 text-sm" style={{ color: C.ok }}>
+          אין כרגע לקוחות עם סימני אזהרה.
+        </Card>
+      ) : (
+        <Card className="divide-y divide-[color:var(--focus-border)] px-2 py-1">
+          <div className="px-3 py-2 text-sm text-[color:var(--focus-muted)]">
+            {rows.length} לקוחות · <b style={{ color: C.warn }}>{ils(total)}</b> לחודש בסיכון
+          </div>
+          {rows.map((r) => (
+            <div key={r.p.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-3">
+              <ProjectAvatar id={r.p.id} name={r.p.name} size={34} />
+              <button onClick={() => nav.go("project", r.p.id)} className="min-w-32 text-right">
+                <div className="font-semibold">{r.p.name}</div>
+                <div className="text-xs text-[color:var(--focus-muted)]">{r.p.client || "—"}</div>
+              </button>
+              <div className="flex min-w-48 flex-1 flex-wrap gap-1.5">
+                {r.reasons.map((x) => (
+                  <Badge key={x.k} color={x.k === "fail" ? C.bad : C.warn}>
+                    {x.txt}
+                  </Badge>
+                ))}
+              </div>
+              <span className="w-24 text-end text-sm tabular-nums text-[color:var(--focus-muted)]">
+                {ils(r.monthly)}/חודש
+              </span>
+              {r.p.phone ? (
+                <a
+                  href={waLink(
+                    r.p.phone,
+                    `היי ${(r.p.client || r.p.name).split(" ")[0]}, רציתי לבדוק שהכול בסדר עם האתר ושאתה מרוצה. יש משהו שאפשר לשפר?`,
+                  )}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[#128c4a] px-3 text-xs font-semibold text-white"
+                >
+                  <MessageCircle className="size-3.5" /> פנה
+                </a>
+              ) : (
+                <span className="w-16 text-xs text-[color:var(--focus-muted)]">אין טלפון</span>
+              )}
+            </div>
+          ))}
+        </Card>
+      )}
+    </div>
+  );
+}
+
 /** what each project paid per hour of tracked focus time */
 function ProfitSection() {
   const db = useDB();
@@ -145,6 +211,7 @@ function ProfitSection() {
   const target = db.settings.hourlyTarget;
   const rows = profitRows(db).sort((a, b) => b.perHour - a.perHour);
   const byType = profitByType(rows, SITE_TYPES);
+  const est = estimateStats(db, SITE_TYPES);
   const hours = rows.reduce((s, r) => s + r.hours, 0);
   const price = rows.reduce((s, r) => s + r.price, 0);
   const avg = hours ? Math.round(price / hours) : 0;
@@ -266,6 +333,15 @@ function ProfitSection() {
                       <div className="text-xs text-[color:var(--focus-muted)]">
                         בממוצע {fmtMin(t.avgHours * 60)} · מחיר ממוצע {ils(avgPrice)}
                       </div>
+                      {(() => {
+                        const e = est.find((x) => x.type === t.type);
+                        return e && Math.abs(e.ratio - 1) >= 0.1 ? (
+                          <div className="mt-1 text-xs text-[color:var(--focus-muted)]">
+                            הערכה מול בפועל: לוקח {Math.round(Math.abs(e.ratio - 1) * 100)}%{" "}
+                            {e.ratio > 1 ? "יותר" : "פחות"} ממה שהערכת
+                          </div>
+                        ) : null;
+                      })()}
                       <div className="mt-2">
                         כדי להגיע ל-{ils(target)} לשעה:{" "}
                         <b className="tabular-nums">{ils(suggested)}</b>
@@ -413,6 +489,8 @@ export function StatsView() {
           sub={avgBuild ? `מחיר בנייה ממוצע ${ils(avgBuild)}` : undefined}
         />
       </div>
+
+      <RiskSection />
 
       <ProfitSection />
 

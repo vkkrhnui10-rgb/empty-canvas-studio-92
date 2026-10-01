@@ -61,3 +61,52 @@ export function profitByType(rows: ProjProfit[], types: SiteType[]): TypeProfit[
     })
     .filter((t) => t.n > 0);
 }
+
+export interface EstStat {
+  type: SiteType;
+  n: number;
+  estMin: number;
+  actMin: number;
+  /** actual ÷ estimate (1.3 = takes 30% longer than you think) */
+  ratio: number;
+}
+/** how your estimates compare with the time you really measured, per site type (finished tasks only) */
+export function estimateStats(db: DB, types: SiteType[]): EstStat[] {
+  const typeOf = new Map(db.projects.map((p) => [p.id, p.siteType]));
+  return types
+    .map((type) => {
+      const l = db.tasks.filter(
+        (t) =>
+          t.status === "done" &&
+          t.estMin > 0 &&
+          t.actualMin > 0 &&
+          typeOf.get(t.projectId) === type,
+      );
+      const estMin = l.reduce((s, t) => s + t.estMin, 0);
+      const actMin = l.reduce((s, t) => s + t.actualMin, 0);
+      return { type, n: l.length, estMin, actMin, ratio: estMin ? actMin / estMin : 1 };
+    })
+    .filter((e) => e.n >= 3);
+}
+
+export interface Quote {
+  type: SiteType;
+  n: number;
+  avgHours: number;
+  avgPrice: number;
+  minPrice: number;
+  target: number;
+}
+/** what to ask for a new site of this type, from your own history */
+export function quoteFor(db: DB, type: SiteType, types: SiteType[]): Quote {
+  const t = profitByType(profitRows(db), types).find((x) => x.type === type);
+  const target = db.settings.hourlyTarget;
+  return {
+    type,
+    n: t?.n ?? 0,
+    avgHours: t?.avgHours ?? 0,
+    avgPrice: t ? Math.round(t.price / t.n) : 0,
+    minPrice: t && target ? Math.round((t.avgHours * target) / 50) * 50 : 0,
+    target,
+  };
+}

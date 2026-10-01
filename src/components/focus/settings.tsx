@@ -39,6 +39,8 @@ import { actions, activeTask, getState, newProject, useDB } from "./store";
 import { Btn, Card, Field, Input, Kbd, Modal, PageHeader, Select, Textarea } from "./ui";
 import { soMessage } from "./billing";
 import { AccountCard, GrowConnectCard } from "./growui";
+import { CloudBackups } from "./growui-backups";
+import { downloadBackup } from "./backup";
 import { download, todayStr } from "./utils";
 import { useNav } from "./nav";
 import { pipSupported } from "./floating";
@@ -49,12 +51,7 @@ export function SettingsView() {
   const db = useDB();
   const s = db.settings;
   const fileRef = React.useRef<HTMLInputElement>(null);
-  const exportJSON = () =>
-    download(
-      `focus-backup-${todayStr()}.json`,
-      JSON.stringify(getState(), null, 2),
-      "application/json",
-    );
+  const exportJSON = downloadBackup;
   const exportCSV = () => {
     const rows = [["כותרת", "פרויקט", "סטטוס", "עדיפות", "יעד", "משוער (דק׳)", "בפועל (דק׳)"]];
     db.tasks.forEach((t) =>
@@ -222,7 +219,6 @@ export function SettingsView() {
             icon={Download}
             onClick={() => {
               exportJSON();
-              localStorage.setItem("focus-last-backup", new Date().toLocaleDateString("he-IL"));
             }}
           >
             גיבוי מלא (JSON)
@@ -250,6 +246,13 @@ export function SettingsView() {
             }}
           />
         </div>
+        <Toggle
+          label="תזכורת גיבוי שבועית"
+          hint="פעם בשבוע, כשהאפליקציה פתוחה, תופיע הודעה עם כפתור הורדה"
+          checked={s.backupReminder !== false}
+          onChange={(v) => actions.settings({ backupReminder: v })}
+        />
+        <CloudBackups />
         <div className="flex flex-wrap gap-2 border-t border-[color:var(--focus-border)] pt-3">
           <Btn size="sm" variant="ghost" icon={Sparkles} onClick={actions.loadDemo}>
             טען נתוני דוגמה

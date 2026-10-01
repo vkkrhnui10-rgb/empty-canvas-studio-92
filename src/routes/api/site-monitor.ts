@@ -42,6 +42,44 @@ async function run(request: Request) {
   if (error) return json({ ok: false }, 500);
   if (!row) return json({ ok: false }, 401);
 
+  // weekly snapshot of the whole workspace (kept: the 8 newest; marked processed so the app ignores them)
+  try {
+    const { data: lastBk } = await supabaseAdmin
+      .from("grow_events")
+      .select("received_at")
+      .eq("user_id", row.user_id)
+      .eq("kind", "backup")
+      .order("received_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const hasData = !!row.data && Object.keys(row.data as object).length > 0;
+    if (hasData && (!lastBk || Date.now() - Date.parse(lastBk.received_at) > 6.5 * 86400_000)) {
+      await supabaseAdmin.from("grow_events").insert({
+        user_id: row.user_id,
+        kind: "backup",
+        payload: row.data as never,
+        processed_at: new Date().toISOString(),
+      });
+      const { data: old } = await supabaseAdmin
+        .from("grow_events")
+        .select("id")
+        .eq("user_id", row.user_id)
+        .eq("kind", "backup")
+        .order("received_at", { ascending: false })
+        .range(8, 60);
+      if (old?.length)
+        await supabaseAdmin
+          .from("grow_events")
+          .delete()
+          .in(
+            "id",
+            old.map((o) => o.id),
+          );
+    }
+  } catch (e) {
+    console.error("[site-monitor] backup failed", (e as Error).message);
+  }
+
   const data = (row.data ?? {}) as { projects?: P[]; settings?: { siteCheckEvery?: string } };
   const every = data.settings?.siteCheckEvery ?? "week";
   if (every === "off") return json({ ok: true, skipped: "off" });

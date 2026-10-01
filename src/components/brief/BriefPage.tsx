@@ -278,17 +278,26 @@ export default function BriefPage({ id }: { id: string }) {
       <div className="bf">
         <style>{BRIEF_CSS}</style>
         <main className="bf-main bf-step">
-          <div className="bf-done-ic" aria-hidden>
-            <svg viewBox="0 0 24 24" width="22" height="22">
-              <path
-                d="M5 12.5l4.2 4.2L19 7"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+          <div className="bf-done-top">
+            <img
+              className="bf-done-mascot"
+              src="/brief/rimon.webp"
+              alt=""
+              width={520}
+              height={667}
+            />
+            <span className="bf-done-ic" aria-hidden>
+              <svg viewBox="0 0 24 24" width="18" height="18">
+                <path
+                  d="M5 12.5l4.2 4.2L19 7"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </span>
           </div>
           <h1 className="bf-h1">
             תודה{first(a.contactName) ? ` ${first(a.contactName)}` : ""}, קיבלנו את התשובות
@@ -347,19 +356,30 @@ export default function BriefPage({ id }: { id: string }) {
         <div className="bf-step" key={step}>
           {step === 0 ? (
             <>
-              <h1 className="bf-h1">כמה שאלות לפני שמתחילים לבנות את האתר</h1>
-              <p className="bf-lead">
-                {first(a.contactName) ? `היי ${first(a.contactName)}. ` : ""}
-                התשובות שלכם הן חומר הגלם: מהן נכתוב את הטקסטים, נבחר צבעים ונעצב.
-              </p>
-              <p className="bf-lead">
-                לא צריך לנסח מושלם. כתבו כמו שהייתם מסבירים לחבר, ואנחנו נלטש. אפשר לדלג על כל שאלה.
-              </p>
-              <div className="bf-intro-meta">
-                <span>{LAST} שלבים קצרים</span>
-                <span>בערך 5 דקות</span>
-                <span>נשמר אוטומטית</span>
-              </div>
+              <section className="bf-hero">
+                <h1 className="bf-h1">כמה שאלות לפני שמתחילים לבנות את האתר</h1>
+                <div className="bf-bubble">
+                  {first(a.contactName) ? `היי ${first(a.contactName)}! ` : "היי! "}
+                  כאן {owner || "הלל רימון"}. מהתשובות שלכם נכתוב את הטקסטים, נבחר צבעים ונעצב את
+                  האתר.
+                </div>
+                <p className="bf-hero-p">
+                  לא צריך לנסח מושלם. כתבו כמו שהייתם מסבירים לחבר, ואנחנו נלטש. אפשר לדלג על כל
+                  שאלה.
+                </p>
+                <div className="bf-intro-meta">
+                  <span>{LAST} שלבים קצרים</span>
+                  <span>בערך 5 דקות</span>
+                  <span>נשמר אוטומטית</span>
+                </div>
+                <img
+                  className="bf-mascot"
+                  src="/brief/rimon.webp"
+                  alt=""
+                  width={520}
+                  height={667}
+                />
+              </section>
             </>
           ) : (
             <>

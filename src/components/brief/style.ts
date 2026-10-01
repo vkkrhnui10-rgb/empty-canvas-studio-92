@@ -36,8 +36,25 @@ export const BRIEF_CSS = `
 .bf-card{border:1px solid var(--line);border-radius:var(--r-card);padding:22px 18px 4px;background:#fff}
 @media (min-width:560px){.bf-card{padding:28px 26px 8px}}
 
-/* intro */
-.bf-intro-meta{display:flex;flex-wrap:wrap;gap:8px;margin:26px 0 8px}
+/* intro: Hillel (the pomegranate) introduces the questionnaire */
+.bf-hero{position:relative;background:var(--ink);color:#fff;border-radius:32px;padding:26px 20px 24px;margin:0 0 48px;
+  background-image:radial-gradient(120% 90% at 0% 100%,rgba(120,180,90,.16),transparent 55%)}
+.bf-hero .bf-h1{color:#fff;margin-bottom:18px;font-size:30px}
+.bf-bubble{position:relative;background:#fff;color:var(--ink);border-radius:24px 24px 24px 6px;padding:14px 18px;font-size:16.5px;line-height:1.55;font-weight:500;max-width:30em;margin:0 0 14px}
+.bf-hero-p{color:rgba(255,255,255,.72);margin:0;font-size:15.5px;max-width:30em}
+.bf-hero .bf-intro-meta{padding-left:108px;margin-bottom:0}
+.bf-hero .bf-intro-meta span{border-color:rgba(255,255,255,.2);color:#fff;font-size:14px;padding:7px 14px}
+.bf-mascot{position:absolute;left:-6px;bottom:-34px;width:124px;height:auto;filter:drop-shadow(0 14px 18px rgba(0,0,0,.3));
+  animation:bf-pop .7s cubic-bezier(.2,1.4,.4,1) .15s both;transform-origin:50% 100%}
+@media (min-width:720px){
+  .bf-hero{padding:40px 40px 36px;padding-left:250px;min-height:330px}
+  .bf-hero .bf-h1{font-size:40px}
+  .bf-hero .bf-intro-meta{padding-left:0}
+  .bf-mascot{left:18px;bottom:-40px;width:220px}
+}
+@keyframes bf-pop{from{opacity:0;transform:translateY(24px) scale(.9)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.bf-mascot{animation:none}}
+.bf-intro-meta{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 8px}
 .bf-intro-meta span{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:99px;padding:8px 16px;font-size:15px;color:var(--text)}
 .bf-intro-meta span::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green)}
 
@@ -144,7 +161,9 @@ export const BRIEF_CSS = `
 .bf-center{min-height:100vh;display:grid;place-content:center;justify-items:center;text-align:center;padding:24px;max-width:460px;margin:0 auto}
 .bf-spin{width:30px;height:30px;border-radius:50%;border:3px solid var(--tint2);border-top-color:var(--ink);animation:bf-rot .8s linear infinite}
 @keyframes bf-rot{to{transform:rotate(360deg)}}
-.bf-done-ic{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;background:var(--green);color:#fff;margin:0 0 24px}
+.bf-done-top{position:relative;width:132px;margin:0 0 18px}
+.bf-done-mascot{display:block;width:132px;height:auto;animation:bf-pop .7s cubic-bezier(.2,1.4,.4,1) both;transform-origin:50% 100%}
+.bf-done-ic{position:absolute;top:6px;left:-6px;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:var(--green);color:#fff;box-shadow:0 0 0 4px #fff}
 .bf-sum{border:1px solid var(--line);border-radius:var(--r-card);margin-top:28px;padding:18px 22px;display:grid;gap:8px;font-size:15px;color:var(--mut)}
 .bf-sum span{display:flex;align-items:center;gap:10px}
 .bf-sum span::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}

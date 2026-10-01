@@ -34,6 +34,7 @@ import { balanceOf, fmtMin, greeting, ils, isOpen, todayStr } from "./utils";
 import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
 import { TaskRow } from "./tasks";
+import { MorningBrief } from "./brief";
 
 export function Dashboard() {
   const db = useDB();
@@ -117,6 +118,8 @@ export function Dashboard() {
           </Btn>
         )}
       </div>
+
+      <MorningBrief />
 
       {/* row 1 — hero + quick actions */}
       <div className="grid gap-5 lg:grid-cols-12">

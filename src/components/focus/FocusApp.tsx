@@ -26,6 +26,7 @@ import {
 import { Toaster } from "sonner";
 import { useSiteMonitor } from "./sitecheck";
 import { useBackupReminder } from "./backup";
+import { useDailyBrief } from "./brief";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -109,6 +110,7 @@ export default function FocusApp() {
   const live = hydrated && (!cloud.enabled || (cloud.ready && !!cloud.session));
   useSiteMonitor(live);
   useBackupReminder(live);
+  useDailyBrief(live);
   const body =
     !hydrated || (cloud.enabled && !cloud.ready) ? (
       <Splash />

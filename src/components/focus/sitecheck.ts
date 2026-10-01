@@ -57,7 +57,7 @@ export async function checkSite(url: string): Promise<SiteCheck> {
 }
 
 /* ---------------- background monitor: checks every project's site, alerts when one is down ---------------- */
-const MONITOR_EVERY = 10 * 60_000;
+const EVERY_MS = { "10m": 10 * 60_000, hour: 3600_000, day: 86400_000, week: 7 * 86400_000 };
 
 async function checkOnce(url: string): Promise<SiteCheck> {
   const r = await checkSite(url);
@@ -67,10 +67,15 @@ async function checkOnce(url: string): Promise<SiteCheck> {
 }
 
 async function sweep() {
+  const every = getState().settings.siteCheckEvery ?? "week";
+  if (every === "off") return;
+  const gap = EVERY_MS[every];
   if (typeof document !== "undefined" && document.hidden) return;
   for (const p of [...getState().projects]) {
     if (!p.url.trim() || CLOSED_PROJECT.includes(p.status)) continue;
-    if (Date.now() - (p.siteCheck?.at ?? 0) < MONITOR_EVERY - 30_000) continue;
+    // a site that is currently down is rechecked at least hourly, so the alert clears once it is back
+    const g = p.siteCheck && !p.siteCheck.ok ? Math.min(gap, EVERY_MS.hour) : gap;
+    if (Date.now() - (p.siteCheck?.at ?? 0) < g - 30_000) continue;
     const wasUp = p.siteCheck ? p.siteCheck.ok : true;
     const r = await checkOnce(p.url);
     actions.recordSiteCheck(p.id, r);

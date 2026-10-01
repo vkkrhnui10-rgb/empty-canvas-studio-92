@@ -66,6 +66,7 @@ export const defaultSettings: DB["settings"] = {
   autoStartNext: true,
   projectsView: "cards",
   projectsPreview: true,
+  siteCheckEvery: "week",
   taskFilter: "open",
   sidebarCollapsed: false,
   pipCompact: false,

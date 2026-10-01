@@ -239,6 +239,8 @@ export interface Settings {
   projectsView: "cards" | "list" | "kanban";
   /** show a browser-window preview of each site on the project cards */
   projectsPreview: boolean;
+  /** how often the background monitor checks every site */
+  siteCheckEvery: "10m" | "hour" | "day" | "week" | "off";
   taskFilter: string;
   sidebarCollapsed: boolean;
   pipCompact: boolean;

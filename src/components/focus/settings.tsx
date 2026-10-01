@@ -36,7 +36,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { C, DEFAULT_SO_MSG, PRIORITIES, STATUSES } from "./constants";
 import { actions, activeTask, getState, newProject, useDB } from "./store";
-import { Btn, Card, Field, Input, Kbd, Modal, PageHeader, Textarea } from "./ui";
+import { Btn, Card, Field, Input, Kbd, Modal, PageHeader, Select, Textarea } from "./ui";
 import { soMessage } from "./billing";
 import { AccountCard, GrowConnectCard } from "./growui";
 import { download, todayStr } from "./utils";
@@ -165,6 +165,20 @@ export function SettingsView() {
             actions.settings({ notifications: v });
           }}
         />
+        <Field label="בדיקת תקינות אתרים ברקע">
+          <Select
+            value={s.siteCheckEvery ?? "week"}
+            onChange={(v) => actions.settings({ siteCheckEvery: v as typeof s.siteCheckEvery })}
+            options={["week", "day", "hour", "10m", "off"]}
+            labels={{
+              week: "פעם בשבוע",
+              day: "פעם ביום",
+              hour: "פעם בשעה",
+              "10m": "כל 10 דקות",
+              off: "כבויה",
+            }}
+          />
+        </Field>
       </Card>
 
       <AccountCard />

@@ -251,6 +251,15 @@ export default function BriefPage({ id }: { id: string }) {
       <div className="bf">
         <style>{BRIEF_CSS}</style>
         <div className="bf-center">
+          {fail && (
+            <img
+              className="bf-err-mascot"
+              src="/brief/rimon.webp"
+              alt=""
+              width={520}
+              height={667}
+            />
+          )}
           {fail === "missing" ? (
             <>
               <h1 className="bf-h2">הקישור הזה כבר לא פעיל</h1>
@@ -281,10 +290,10 @@ export default function BriefPage({ id }: { id: string }) {
           <div className="bf-done-top">
             <img
               className="bf-done-mascot"
-              src="/brief/rimon.webp"
+              src="/brief/rimon-sit.webp"
               alt=""
               width={520}
-              height={667}
+              height={646}
             />
             <span className="bf-done-ic" aria-hidden>
               <svg viewBox="0 0 24 24" width="18" height="18">
@@ -374,10 +383,10 @@ export default function BriefPage({ id }: { id: string }) {
                 </div>
                 <img
                   className="bf-mascot"
-                  src="/brief/rimon.webp"
+                  src="/brief/rimon-hello.webp"
                   alt=""
                   width={520}
-                  height={667}
+                  height={621}
                 />
               </section>
             </>
@@ -385,6 +394,12 @@ export default function BriefPage({ id }: { id: string }) {
             <>
               <h2 className="bf-h2">{S.t}</h2>
               <p className="bf-hint">{S.h}</p>
+              {S.k === "contact" && (
+                <div className="bf-cheer">
+                  <img src="/brief/rimon-point.webp" alt="" width={520} height={678} />
+                  <span className="bf-bubble">כמעט סיימנו! עוד כמה פרטים ושולחים.</span>
+                </div>
+              )}
               <div className="bf-card">
                 {S.k === "biz" && (
                   <>

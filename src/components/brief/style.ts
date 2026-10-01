@@ -54,6 +54,10 @@ export const BRIEF_CSS = `
 }
 @keyframes bf-pop{from{opacity:0;transform:translateY(24px) scale(.9)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.bf-mascot{animation:none}}
+.bf-cheer{display:flex;align-items:flex-end;gap:10px;margin:-6px 0 18px}
+.bf-cheer img{width:84px;height:auto;flex:none;order:2;animation:bf-pop .6s cubic-bezier(.2,1.4,.4,1) both;transform-origin:50% 100%}
+.bf-cheer .bf-bubble{margin:0 0 18px;background:var(--tint);border-radius:22px 22px 6px 22px;font-size:15.5px;padding:12px 16px}
+.bf-err-mascot{width:130px;height:auto;margin-bottom:18px}
 .bf-intro-meta{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 8px}
 .bf-intro-meta span{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:99px;padding:8px 16px;font-size:15px;color:var(--text)}
 .bf-intro-meta span::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green)}

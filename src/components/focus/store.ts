@@ -13,6 +13,7 @@ import type {
   LeadNote,
   LeadStage,
   Project,
+  SiteCheck,
   Task,
   TaskStatus,
   TimerState,
@@ -465,6 +466,14 @@ export function computeAlerts(db: DB): Alert[] {
         txt: `הוראת קבע לא נבדקה ${p.soChecked ? `${daysSince(p.soChecked)} ימים` : "מעולם"}: ${p.name}`,
         projectId: p.id,
         sev: "warn",
+      });
+    if (p.url.trim() && p.siteCheck && !p.siteCheck.ok && !CLOSED_PROJECT.includes(p.status))
+      a.push({
+        id: `site-down-${p.id}-${p.siteCheck.downSince ?? p.siteCheck.at}`,
+        kind: "site",
+        txt: `האתר לא עובד: ${p.name}${p.siteCheck.status ? ` (${p.siteCheck.status})` : ""}${p.siteCheck.error ? ` — ${p.siteCheck.error}` : ""}`,
+        projectId: p.id,
+        sev: "bad",
       });
     if (SITE_BAD.includes(p.siteState))
       a.push({
@@ -961,6 +970,18 @@ export const actions = {
       if (patch.status === "הושק" && !p.doneDate) p.doneDate = todayStr();
       if (patch.soState === "ok" && !p.soStart) p.soStart = todayStr();
       if (logTxt) log(d, id, logTxt);
+    });
+  },
+  /** store a site check; remembers when the current outage started */
+  recordSiteCheck(id: string, r: SiteCheck) {
+    update((d) => {
+      const p = findProject(d, id);
+      if (!p) return;
+      const prev = p.siteCheck;
+      p.siteCheck = {
+        ...r,
+        downSince: r.ok ? undefined : prev && !prev.ok ? (prev.downSince ?? prev.at) : r.at,
+      };
     });
   },
   deleteProject(id: string) {

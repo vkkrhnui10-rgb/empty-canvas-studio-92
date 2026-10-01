@@ -1733,7 +1733,7 @@ function SiteCard({ p }: { p: Project }) {
   const run = React.useCallback(async () => {
     setBusy(true);
     const r = await checkSite(p.url);
-    actions.patchProject(p.id, { siteCheck: r });
+    actions.recordSiteCheck(p.id, r);
     setBusy(false);
   }, [p.id, p.url]);
 

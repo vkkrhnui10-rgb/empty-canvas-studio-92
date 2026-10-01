@@ -23,6 +23,7 @@ import {
   Wallet,
 } from "lucide-react";
 import { Toaster } from "sonner";
+import { useSiteMonitor } from "./sitecheck";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
@@ -100,6 +101,7 @@ export default function FocusApp() {
     hydrate();
     startCloud();
   }, []);
+  useSiteMonitor(hydrated && (!cloud.enabled || (cloud.ready && !!cloud.session)));
   const body =
     !hydrated || (cloud.enabled && !cloud.ready) ? (
       <Splash />

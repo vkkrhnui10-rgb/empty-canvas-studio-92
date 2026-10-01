@@ -116,6 +116,8 @@ export interface SiteCheck {
   status: number;
   ms: number;
   error?: string;
+  /** when the site was first seen down in the current outage */
+  downSince?: number;
 }
 
 export interface Project {

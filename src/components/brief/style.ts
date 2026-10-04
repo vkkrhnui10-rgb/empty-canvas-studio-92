@@ -10,6 +10,9 @@ export const BRIEF_CSS = `
 .bf :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
 .bf-preview{background:#16183d;color:#fff;text-align:center;font-size:12px;padding:5px 10px;letter-spacing:.02em}
+.bf-offline{position:sticky;top:0;z-index:25;background:#7a2e14;color:#fff;font-size:13.5px;line-height:1.45;padding:8px 16px;text-align:center}
+.bf-toast{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0 0 18px;padding:12px 16px;border-radius:18px;background:var(--tint);color:var(--ink);font-size:15px;animation:bf-in .3s ease-out}
+.bf-toast .bf-link{margin-inline-start:auto}
 /* header */
 .bf-top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .bf-top-in{max-width:640px;margin:0 auto;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
@@ -37,7 +40,12 @@ export const BRIEF_CSS = `
 .bf-ok{color:#3f8a2b}
 .bf-err{color:var(--bad);font-size:14px;margin:12px 0 0}
 .bf-step{animation:bf-in .25s ease-out}
+.bf-step.fwd{animation-name:bf-in-fwd}
+.bf-step.back{animation-name:bf-in-back}
 @keyframes bf-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes bf-in-fwd{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes bf-in-back{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+.bf-h2:focus{outline:none}
 @media (prefers-reduced-motion:reduce){.bf-step{animation:none}.bf *{transition:none!important}}
 
 .bf-card{border:1px solid var(--line);border-radius:var(--r-card);padding:22px 18px 4px;background:#fff}
@@ -49,8 +57,10 @@ export const BRIEF_CSS = `
 .bf-hero .bf-h1{color:#fff;margin-bottom:18px;font-size:30px}
 .bf-bubble{position:relative;background:#fff;color:var(--ink);border-radius:24px 24px 24px 6px;padding:14px 18px;font-size:16.5px;line-height:1.55;font-weight:500;max-width:30em;margin:0 0 14px}
 .bf-hero-p{color:rgba(255,255,255,.72);margin:0;font-size:15.5px;max-width:30em}
-.bf-hero .bf-intro-meta{padding-left:108px;margin-bottom:0}
-.bf-hero .bf-intro-meta span{border-color:rgba(255,255,255,.2);color:#fff;font-size:14px;padding:7px 14px}
+.bf-hero .bf-intro-meta{padding-left:118px;margin-bottom:0}
+.bf-hero .bf-intro-meta{flex-direction:column;gap:6px;margin-top:20px}
+.bf-hero .bf-intro-meta span{border:0;padding:0;color:rgba(255,255,255,.9);font-size:14.5px;align-items:flex-start;line-height:1.45}
+.bf-hero .bf-intro-meta span::before{margin-top:7px;flex:none}
 .bf-mascot{position:absolute;left:-6px;bottom:-34px;width:124px;height:auto;filter:drop-shadow(0 14px 18px rgba(0,0,0,.3));
   animation:bf-pop .7s cubic-bezier(.2,1.4,.4,1) .15s both;transform-origin:50% 100%}
 @media (min-width:720px){
@@ -79,6 +89,9 @@ export const BRIEF_CSS = `
 .bf-in::placeholder{color:#a9a8b3}
 .bf-in:hover{border-color:#d6d3df}
 .bf-in:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 4px rgba(31,22,79,.08)}
+.bf-in.warn{border-color:#d49a2a}
+.bf-warn{margin:6px 6px 0;font-size:13.5px;color:#8a5a00}
+.bf-q-l{cursor:default}
 .bf-area{border-radius:22px;resize:none;min-height:52px;line-height:1.65;overflow:hidden;padding:13px 20px;display:block}
 .bf-area-w{position:relative}
 .bf-area-w.has-mic .bf-area{padding-inline-end:56px}
@@ -162,6 +175,8 @@ export const BRIEF_CSS = `
 .bf-missing{margin-top:18px;border-radius:24px;background:#fff8e6;border:1px solid #f3e2b3;padding:14px 16px;font-size:14px;color:#6b5418;display:grid;gap:4px}
 .bf-missing b{color:#4d3b0c;font-size:15px}
 .bf-missing div{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bf-missing.bf-bad{background:#fdecea;border-color:#f3c3bd;color:#7a1f14}
+.bf-missing.bf-bad b{color:#7a1f14}
 .bf-missing button{border:1px solid #e8d49c;background:#fff;border-radius:99px;padding:6px 12px;font-size:14px;color:#4d3b0c}
 
 .bf-thumbs-head{margin-top:16px}
@@ -178,6 +193,18 @@ export const BRIEF_CSS = `
 .bf-check-row{display:flex;gap:12px;align-items:center;margin:16px 0 22px;cursor:pointer;font-size:15px;border:1px solid var(--line);border-radius:99px;padding:12px 18px}
 .bf-check-tight{margin:-8px 0 22px}
 .bf-check-row input{width:20px;height:20px;accent-color:var(--ink);flex:none;margin:0}
+
+/* review before sending */
+.bf-review{list-style:none;margin:18px 0 0;padding:0;display:grid;gap:10px}
+.bf-review button{width:100%;display:flex;align-items:flex-start;gap:12px;text-align:start;border:1px solid var(--line);background:#fff;border-radius:22px;padding:14px 16px;transition:border-color .12s}
+.bf-review button:hover{border-color:var(--ink)}
+.bf-review-n{flex:none;width:26px;height:26px;border-radius:50%;background:var(--tint2);color:var(--ink);display:grid;place-items:center;font-size:13px;font-weight:700;margin-top:1px}
+.bf-review li.need .bf-review-n{background:#fbe7b5;color:#6b5418}
+.bf-review-b{flex:1;min-width:0;display:grid;gap:2px;font-size:14px;color:var(--text);line-height:1.45}
+.bf-review-b b{font-size:15.5px;color:var(--ink)}
+.bf-review-b span{overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.bf-review-b .mut{color:var(--soft)}
+.bf-review-e{flex:none;font-size:13.5px;font-weight:600;color:var(--ink);text-decoration:underline;text-underline-offset:3px;text-decoration-color:#cfccd9;margin-top:2px}
 
 /* navigation */
 .bf-nav{display:flex;gap:10px;margin-top:28px;align-items:center}
@@ -203,4 +230,6 @@ export const BRIEF_CSS = `
 .bf-sum span{display:flex;align-items:center;gap:10px}
 .bf-sum span::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);flex:none}
 .bf-sum b{color:var(--ink);font-weight:700}
+.bf-sum span.empty::before{background:var(--line)}
+.bf-sum span.empty b{color:var(--soft);font-weight:400}
 `;

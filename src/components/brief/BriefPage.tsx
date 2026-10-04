@@ -16,6 +16,7 @@ import {
   TONES,
 } from "@/components/focus/briefcore";
 import {
+  FIELD_DEFS,
   resolveForm,
   type BriefForm,
   type CustomQ,
@@ -77,6 +78,114 @@ interface Info {
 type StepK = "intro" | StepKey;
 /** the id the owner's editor uses to show a live preview (no network, nothing saved) */
 export const PREVIEW_ID = "preview";
+
+const FIELD_KEYS = FIELD_DEFS.map((d) => d.k);
+const short = (t: string, n = 90) => {
+  const x = t.trim().replace(/\s+/g, " ");
+  return x.length > n ? `${x.slice(0, n - 1)}…` : x;
+};
+
+/** what the client filled in each step, in a few short lines, for the review screen */
+function reviewLines(
+  k: StepK,
+  a: BriefAnswers,
+  c: { logo: boolean; photos: number; shots: number; F: ResolvedForm },
+): string[] {
+  const out: string[] = [];
+  const add = (field: string, v: string | false | undefined | null) => {
+    if (v && (field === "" || c.F.on(field))) out.push(v);
+  };
+  const n = (x: number, one: string, many: string) => (x === 1 ? one : `${x} ${many}`);
+  switch (k) {
+    case "biz":
+      add(
+        "business",
+        a.business.trim() && [a.business.trim(), a.industry.trim()].filter(Boolean).join(" · "),
+      );
+      add("tagline", short(a.tagline));
+      add("area", a.area.trim() && `אזור: ${a.area.trim()}`);
+      break;
+    case "site":
+      add("mainAction", a.mainAction && `הכי חשוב: ${a.mainAction}`);
+      add(
+        "pages",
+        a.pages.length > 0 && `${n(a.pages.length, "עמוד אחד", "עמודים")}: ${a.pages.join(", ")}`,
+      );
+      add("features", a.features.length > 0 && a.features.join(", "));
+      add("deadline", a.deadline && `לוח זמנים: ${a.deadline}`);
+      break;
+    case "story":
+      add("about", short(a.about));
+      add("highlights", a.highlights.length > 0 && a.highlights.join(", "));
+      add("years", a.years.trim() && `${a.years.trim()} שנים בתחום`);
+      break;
+    case "services": {
+      const s = a.services.filter((x) => x.name.trim());
+      add("services", s.length > 0 && s.map((x) => x.name.trim()).join(", "));
+      const q = a.faq.filter((x) => x.q.trim()).length;
+      add("faq", q > 0 && n(q, "שאלה נפוצה אחת", "שאלות נפוצות"));
+      break;
+    }
+    case "look":
+      add("logo", c.logo && "לוגו הועלה");
+      add(
+        "colors",
+        a.colorMode === "you"
+          ? "צבעים: תבחרו אתם"
+          : a.colors.length > 0 && `${a.colors.length} צבעים נבחרו`,
+      );
+      add("tone", a.tone && `טון: ${a.tone}`);
+      break;
+    case "inspo": {
+      const s = a.sites.filter((x) => x.url.trim()).length;
+      add("sites", s > 0 && n(s, "אתר השראה אחד", "אתרי השראה"));
+      add("competitors", a.competitors.trim() && `מתחרים: ${short(a.competitors, 60)}`);
+      add("avoid", a.avoid.trim() && `לא רוצים: ${short(a.avoid, 60)}`);
+      break;
+    }
+    case "photos":
+      add(
+        "photos",
+        c.photos > 0 ? n(c.photos, "תמונה אחת", "תמונות") : a.noPhotos && "תמונות מקצועיות מתאימות",
+      );
+      add("photosLink", a.photosLink.trim() && "קישור לתמונות");
+      break;
+    case "reviews": {
+      const t = a.testimonials.filter((x) => x.text.trim()).length;
+      add("testimonials", t > 0 && n(t, "המלצה אחת", "המלצות"));
+      add("reviewShots", c.shots > 0 && n(c.shots, "צילום מסך של המלצה", "צילומי מסך"));
+      add("reviewsLink", a.reviewsLink.trim() && "קישור לביקורות");
+      break;
+    }
+    case "contact":
+      add("phone", a.phone.trim());
+      add("email", a.email.trim());
+      add("domain", a.domain.trim() || (a.domainMode === "need" ? "צריך עזרה עם דומיין" : ""));
+      break;
+  }
+  if (k !== "intro")
+    for (const q of c.F.custom(k)) {
+      const v = a.custom.find((x) => x.id === q.id)?.value;
+      const t = Array.isArray(v) ? v.join(", ") : (v || "").trim();
+      if (t) out.push(`${q.label} ${short(t, 60)}`);
+    }
+  return out;
+}
+
+/* ---------- gentle checks (never block sending) ---------- */
+const checkPhone = (v: string) => {
+  const d = v.replace(/\D/g, "").replace(/^972/, "0");
+  if (!d) return "";
+  if (d.length < 9) return "נראה שחסרות ספרות";
+  if (d.length > 10) return "נראה שיש ספרות מיותרות";
+  return "";
+};
+const checkEmail = (v: string) =>
+  !v.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? "" : "המייל נראה לא שלם";
+const checkUrl = (v: string) =>
+  !v.trim() || /^(https?:\/\/)?[^\s.]+\.[^\s]{2,}$/i.test(v.trim())
+    ? ""
+    : "זה לא נראה כמו כתובת אתר";
 
 /** the owner's wording for each question (context, so every field reads it) */
 const FormCtx = React.createContext<ResolvedForm>(resolveForm());
@@ -179,6 +288,14 @@ export default function BriefPage({ id }: { id: string }) {
   const [sendErr, setSendErr] = React.useState("");
   const [ready, setReady] = React.useState(false);
   const [saved, setSaved] = React.useState<"" | "saving" | "saved">("");
+  const [online, setOnline] = React.useState(true);
+  const [welcome, setWelcome] = React.useState(false);
+  /** send as soon as the uploads finish */
+  const [queued, setQueued] = React.useState(false);
+  /** came to a step from the review screen — "continue" goes back there */
+  const [fromReview, setFromReview] = React.useState(false);
+  const dir = React.useRef<"fwd" | "back">("fwd");
+  const headRef = React.useRef<HTMLHeadingElement>(null);
   const raw = React.useRef(new Map<string, Blob>());
   const synced = React.useRef("");
   const pending = React.useRef("");
@@ -241,7 +358,14 @@ export default function BriefPage({ id }: { id: string }) {
         setA(ans);
         setFiles(fl);
         setStep(st);
-        setSent(local?.sent ?? (j.status === "done" ? Date.now() : undefined));
+        const wasSent = local?.sent ?? (j.status === "done" ? Date.now() : undefined);
+        setSent(wasSent);
+        if (st > 0 && !wasSent) setWelcome(true);
+        try {
+          history.replaceState({ ...history.state, bfStep: st }, "");
+        } catch {
+          /* sandboxed */
+        }
         synced.current = draftBody(ans, fl, st);
         setReady(true);
       })
@@ -307,6 +431,42 @@ export default function BriefPage({ id }: { id: string }) {
     document.addEventListener("visibilitychange", flush);
     return () => document.removeEventListener("visibilitychange", flush);
   }, [pushDraft]);
+
+  // the phone's back button / gesture moves between steps instead of leaving the page
+  React.useEffect(() => {
+    if (preview) return;
+    const on = (e: PopStateEvent) => {
+      const n = e.state?.bfStep;
+      if (typeof n !== "number") return;
+      setStep((cur) => {
+        dir.current = n < cur ? "back" : "fwd";
+        return n;
+      });
+      setFromReview(false);
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener("popstate", on);
+    return () => window.removeEventListener("popstate", on);
+  }, [preview]);
+
+  React.useEffect(() => {
+    if (!welcome) return;
+    const t = setTimeout(() => setWelcome(false), 4500);
+    return () => clearTimeout(t);
+  }, [welcome]);
+
+  // no connection: everything keeps saving on this device and catches up when it's back
+  React.useEffect(() => {
+    setOnline(navigator.onLine);
+    const up = () => setOnline(true);
+    const down = () => setOnline(false);
+    window.addEventListener("online", up);
+    window.addEventListener("offline", down);
+    return () => {
+      window.removeEventListener("online", up);
+      window.removeEventListener("offline", down);
+    };
+  }, []);
 
   const set = <K extends keyof BriefAnswers>(k: K, v: BriefAnswers[K]) =>
     setA((x) => ({ ...x, [k]: v }));
@@ -430,6 +590,13 @@ export default function BriefPage({ id }: { id: string }) {
     const b = raw.current.get(f.key);
     if (b) void startUpload(f, b);
   };
+  const filesRef = React.useRef(files);
+  filesRef.current = files;
+  React.useEffect(() => {
+    if (!online || !ready) return;
+    filesRef.current.filter((f) => f.status === "err").forEach(retry);
+    if (pending.current) void pushDraft(pending.current);
+  }, [online]); // eslint-disable-line react-hooks/exhaustive-deps
   const removeFile = (key: string) => setFiles((fs) => fs.filter((f) => f.key !== key));
 
   /* ---------- the owner's form ---------- */
@@ -446,13 +613,42 @@ export default function BriefPage({ id }: { id: string }) {
     });
 
   /* ---------- navigation ---------- */
-  const go = (n: number) => {
-    setStep(Math.max(0, Math.min(LAST, n)));
+  /** the review screen comes after the last step */
+  const REVIEW = LAST + 1;
+  const go = (n: number, opts: { fromReview?: boolean } = {}) => {
+    const to = Math.max(0, Math.min(REVIEW, n));
+    dir.current = to < step ? "back" : "fwd";
+    setFromReview(!!opts.fromReview);
+    setStep(to);
+    setWelcome(false);
+    if (!preview)
+      try {
+        history.pushState({ ...history.state, bfStep: to }, "");
+      } catch {
+        /* sandboxed */
+      }
     window.scrollTo({ top: 0 });
   };
   const uploading = files.filter((f) => f.status === "up").length;
+  const failed = files.filter((f) => f.status === "err").length;
+
+  // move the screen reader to the new step's title (without opening the phone keyboard)
+  React.useEffect(() => {
+    if (ready) headRef.current?.focus({ preventScroll: true });
+  }, [step, ready]);
+
+  React.useEffect(() => {
+    if (!uploading) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [uploading]);
 
   const submit = async () => {
+    setQueued(false);
     if (preview) return setSent(Date.now());
     setSendErr("");
     setSending(true);
@@ -478,6 +674,10 @@ export default function BriefPage({ id }: { id: string }) {
       setSending(false);
     }
   };
+
+  React.useEffect(() => {
+    if (queued && !uploading && !sending) void submit();
+  }, [queued, uploading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const logo = files.find((f) => f.kind === "logo");
   const photos = files.filter((f) => f.kind === "image");
@@ -569,22 +769,19 @@ export default function BriefPage({ id }: { id: string }) {
             לאתר.
           </p>
           <div className="bf-sum">
-            <span>
-              עמודים: <b>{a.pages.length || "—"}</b>
-            </span>
-            <span>
-              שירותים: <b>{a.services.filter((s) => s.name.trim()).length || "—"}</b>
-            </span>
-            <span>
-              לוגו: <b>{logo ? "הועלה" : "—"}</b>
-            </span>
-            <span>
-              המלצות:{" "}
-              <b>{a.testimonials.filter((t) => t.text.trim()).length + shots.length || "—"}</b>
-            </span>
-            <span>
-              תמונות: <b>{photos.length || (a.noPhotos ? "נשתמש בתמונות מקצועיות" : "—")}</b>
-            </span>
+            {(
+              [
+                ["עמודים", a.pages.length || ""],
+                ["שירותים", a.services.filter((s) => s.name.trim()).length || ""],
+                ["לוגו", logo ? "הועלה" : ""],
+                ["המלצות", a.testimonials.filter((t) => t.text.trim()).length + shots.length || ""],
+                ["תמונות", photos.length || (a.noPhotos ? "נשתמש בתמונות מקצועיות" : "")],
+              ] as [string, string | number][]
+            ).map(([l, v]) => (
+              <span key={l} className={v ? "" : "empty"}>
+                {l}: <b>{v || "—"}</b>
+              </span>
+            ))}
           </div>
           <p className="bf-small" style={{ marginTop: 24 }}>
             שכחתם משהו?{" "}
@@ -597,11 +794,17 @@ export default function BriefPage({ id }: { id: string }) {
     );
 
   /* ---------- the form ---------- */
-  if (step > LAST) {
-    setStep(LAST);
+  if (step > REVIEW) {
+    setStep(REVIEW);
     return null;
   }
-  const S = STEPS[step];
+  const isReview = step === REVIEW;
+  const S = STEPS[Math.min(step, LAST)];
+  const fieldCount =
+    F.steps.reduce((n, s) => n + F.custom(s.k).length, 0) +
+    FIELD_KEYS.filter((k) => F.on(k)).length;
+  const minutes = Math.max(3, Math.round(fieldCount / 5));
+  const missingSteps = new Set(missing.map(([, s]) => s));
   const listSet = <K extends "services" | "sites" | "testimonials" | "faq">(
     k: K,
     i: number,
@@ -621,6 +824,11 @@ export default function BriefPage({ id }: { id: string }) {
       <div className={`bf ${kb ? "kb" : ""}`}>
         <style>{BRIEF_CSS}</style>
         {preview && <div className="bf-preview">תצוגה מקדימה · שום דבר לא נשמר</div>}
+        {!online && !preview && (
+          <div className="bf-offline" role="status">
+            אין חיבור לאינטרנט. מה שתמלאו נשמר בטלפון, ונמשיך לבד כשהחיבור יחזור.
+          </div>
+        )}
         <header className="bf-top">
           <div className="bf-top-in">
             <span className="bf-brand">{title || "שאלון לבניית אתר"}</span>
@@ -635,7 +843,7 @@ export default function BriefPage({ id }: { id: string }) {
               {STEPS.slice(1).map((s, i) => (
                 <button
                   key={s.k}
-                  className={i + 1 === step ? "on" : i + 1 < step ? "past" : ""}
+                  className={i + 1 === step ? "on" : i + 1 < step || isReview ? "past" : ""}
                   aria-label={`${i + 1}. ${s.t}`}
                   aria-current={i + 1 === step ? "step" : undefined}
                   onClick={() => go(i + 1)}
@@ -646,7 +854,15 @@ export default function BriefPage({ id }: { id: string }) {
         </header>
 
         <main className="bf-main" onKeyDown={nextField}>
-          <div className="bf-step" key={step}>
+          {welcome && (
+            <div className="bf-toast" role="status">
+              <b>ברוכים השבים!</b> ממשיכים מאיפה שעצרתם.
+              <button className="bf-link" onClick={() => go(0)}>
+                להתחלה
+              </button>
+            </div>
+          )}
+          <div className={`bf-step ${dir.current}`} key={step}>
             {step === 0 ? (
               <section className="bf-hero">
                 <h1 className="bf-h1">כמה שאלות לפני שמתחילים לבנות את האתר</h1>
@@ -659,10 +875,11 @@ export default function BriefPage({ id }: { id: string }) {
                   שאלה.
                 </p>
                 <div className="bf-intro-meta">
-                  <span>{LAST} שלבים קצרים</span>
-                  <span>בערך 7 דקות</span>
+                  <span>
+                    {LAST} שלבים, בערך {minutes} דקות
+                  </span>
                   {canSpeak && <span>אפשר להקליט במקום להקליד</span>}
-                  <span>נשמר. אפשר להמשיך מכל מכשיר</span>
+                  <span>נשמר לבד, אפשר להמשיך מכל מכשיר</span>
                 </div>
                 <img
                   className="bf-mascot"
@@ -672,14 +889,30 @@ export default function BriefPage({ id }: { id: string }) {
                   height={621}
                 />
               </section>
+            ) : isReview ? (
+              <Review
+                steps={STEPS.slice(1)}
+                lines={(k) =>
+                  reviewLines(k, a, { logo: !!logo, photos: photos.length, shots: shots.length, F })
+                }
+                missing={missing}
+                missingSteps={missingSteps}
+                failed={failed}
+                uploading={queued ? 0 : uploading}
+                onRetry={() => files.filter((f) => f.status === "err").forEach(retry)}
+                onEdit={(n) => go(n, { fromReview: true })}
+                headRef={headRef}
+              />
             ) : (
               <>
                 <p className="bf-kicker">
                   שלב {step} מתוך {LAST}
                 </p>
-                <h2 className="bf-h2">{S.t}</h2>
+                <h2 className="bf-h2" ref={headRef} tabIndex={-1}>
+                  {S.t}
+                </h2>
                 <p className="bf-hint">{S.h}</p>
-                {step === LAST && (
+                {step === LAST && !fromReview && (
                   <div className="bf-cheer">
                     <img src="/brief/rimon-point.webp" alt="" width={520} height={678} />
                     <span className="bf-bubble">כמעט סיימנו! עוד כמה פרטים ושולחים.</span>
@@ -764,6 +997,7 @@ export default function BriefPage({ id }: { id: string }) {
                         <Text
                           value={a.currentSite}
                           onChange={(v) => set("currentSite", v)}
+                          check={checkUrl}
                           placeholder="www.example.co.il"
                           ltr
                           inputMode="url"
@@ -1199,6 +1433,7 @@ export default function BriefPage({ id }: { id: string }) {
                         <Text
                           value={a.photosLink}
                           onChange={(v) => set("photosLink", v)}
+                          check={checkUrl}
                           placeholder="https://"
                           ltr
                           inputMode="url"
@@ -1263,6 +1498,7 @@ export default function BriefPage({ id }: { id: string }) {
                         <Text
                           value={a.reviewsLink}
                           onChange={(v) => set("reviewsLink", v)}
+                          check={checkUrl}
                           placeholder="https://"
                           ltr
                           inputMode="url"
@@ -1278,6 +1514,7 @@ export default function BriefPage({ id }: { id: string }) {
                           <Text
                             value={a.phone}
                             onChange={(v) => set("phone", v)}
+                            check={checkPhone}
                             type="tel"
                             ltr
                             autoComplete="tel"
@@ -1287,6 +1524,7 @@ export default function BriefPage({ id }: { id: string }) {
                           <Text
                             value={a.email}
                             onChange={(v) => set("email", v)}
+                            check={checkEmail}
                             type="email"
                             ltr
                             autoComplete="email"
@@ -1310,6 +1548,7 @@ export default function BriefPage({ id }: { id: string }) {
                               <Text
                                 value={a.whatsapp}
                                 onChange={(v) => set("whatsapp", v)}
+                                check={checkPhone}
                                 type="tel"
                                 ltr
                               />
@@ -1362,6 +1601,7 @@ export default function BriefPage({ id }: { id: string }) {
                           <Text
                             value={a.domain}
                             onChange={(v) => set("domain", v)}
+                            check={checkUrl}
                             placeholder="www.example.co.il"
                             ltr
                             inputMode="url"
@@ -1393,35 +1633,29 @@ export default function BriefPage({ id }: { id: string }) {
                     />
                   ))}
                 </div>
-
-                {step === LAST && missing.length > 0 && (
-                  <div className="bf-missing">
-                    <b>כדאי להשלים</b>
-                    <span>אפשר לשלוח גם בלי, אבל זה יעזור לנו לבנות אתר טוב יותר:</span>
-                    <div>
-                      {missing.map(([l, s]) => (
-                        <button key={l} onClick={() => go(s)}>
-                          {l}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </>
             )}
           </div>
 
           <nav className="bf-nav">
-            {step < LAST ? (
-              <button className="bf-btn" onClick={() => go(step + 1)}>
-                {step === 0 ? "התחלה" : "המשך"}
+            {isReview ? (
+              <button
+                className="bf-btn"
+                disabled={sending || queued}
+                onClick={() => (uploading ? setQueued(true) : void submit())}
+              >
+                {sending ? "שולח…" : queued ? `שולח אחרי ההעלאה (${uploading})…` : "שליחת התשובות"}
+              </button>
+            ) : fromReview ? (
+              <button className="bf-btn" onClick={() => go(REVIEW)}>
+                חזרה לסיכום
               </button>
             ) : (
-              <button className="bf-btn" disabled={sending || uploading > 0} onClick={submit}>
-                {uploading > 0 ? `מעלה ${uploading} קבצים…` : sending ? "שולח…" : "שליחת התשובות"}
+              <button className="bf-btn" onClick={() => go(step + 1)}>
+                {step === 0 ? "התחלה" : step === LAST ? "לסיכום ושליחה" : "המשך"}
               </button>
             )}
-            {step > 0 && (
+            {step > 0 && !fromReview && (
               <button className="bf-back" onClick={() => go(step - 1)}>
                 חזרה
               </button>
@@ -1431,6 +1665,87 @@ export default function BriefPage({ id }: { id: string }) {
         </main>
       </div>
     </FormCtx.Provider>
+  );
+}
+
+/* ---------------- the review screen ---------------- */
+function Review({
+  steps,
+  lines,
+  missing,
+  missingSteps,
+  failed,
+  uploading,
+  onRetry,
+  onEdit,
+  headRef,
+}: {
+  steps: { k: StepK; t: string }[];
+  lines: (k: StepK) => string[];
+  missing: [string, number][];
+  missingSteps: Set<number>;
+  failed: number;
+  uploading: number;
+  onRetry: () => void;
+  onEdit: (step: number) => void;
+  headRef: React.RefObject<HTMLHeadingElement | null>;
+}) {
+  return (
+    <>
+      <p className="bf-kicker">לפני ששולחים</p>
+      <h2 className="bf-h2" ref={headRef} tabIndex={-1}>
+        הכל נראה טוב?
+      </h2>
+      <p className="bf-hint">עברו רגע על התשובות. אפשר לתקן כל שלב בלחיצה.</p>
+      {missing.length > 0 && (
+        <div className="bf-missing">
+          <b>כדאי להשלים</b>
+          <span>אפשר לשלוח גם בלי, אבל זה יעזור לנו לבנות אתר טוב יותר:</span>
+          <div>
+            {missing.map(([l, s]) => (
+              <button key={l} onClick={() => onEdit(s)}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {failed > 0 && (
+        <div className="bf-missing bf-bad">
+          <b>{failed === 1 ? "קובץ אחד לא עלה" : `${failed} קבצים לא עלו`}</b>
+          <div>
+            <button onClick={onRetry}>לנסות שוב</button>
+          </div>
+        </div>
+      )}
+      {uploading > 0 && (
+        <p className="bf-toast">
+          {uploading === 1 ? "קובץ אחד עוד עולה" : `${uploading} קבצים עוד עולים`}. אפשר כבר ללחוץ
+          שליחה, נשלח ברגע שיסיימו.
+        </p>
+      )}
+      <ol className="bf-review">
+        {steps.map((s, i) => {
+          const l = lines(s.k);
+          return (
+            <li key={s.k} className={missingSteps.has(i + 1) ? "need" : ""}>
+              <button onClick={() => onEdit(i + 1)} aria-label={`עריכת ${s.t}`}>
+                <span className="bf-review-n">{i + 1}</span>
+                <span className="bf-review-b">
+                  <b>{s.t}</b>
+                  {l.length ? (
+                    l.map((x, j) => <span key={j}>{x}</span>)
+                  ) : (
+                    <span className="mut">לא מולא</span>
+                  )}
+                </span>
+                <span className="bf-review-e">עריכה</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </>
   );
 }
 
@@ -1501,17 +1816,25 @@ function Q({
   optional?: boolean | string;
   children: React.ReactNode;
 }) {
+  const id = React.useId();
   return (
-    <div className="bf-q">
-      <label className="bf-q-l">
+    <div className="bf-q" role="group" aria-labelledby={id}>
+      <label
+        className="bf-q-l"
+        id={id}
+        onClick={(e) =>
+          (e.currentTarget.parentElement?.querySelector(".bf-in") as HTMLElement | null)?.focus()
+        }
+      >
         {label}
         {optional && <em>{typeof optional === "string" ? optional : "לא חובה"}</em>}
         {hint && <small>{hint}</small>}
       </label>
-      {children}
+      <QLabel.Provider value={id}>{children}</QLabel.Provider>
     </div>
   );
 }
+const QLabel = React.createContext("");
 
 /** a built-in question, as the owner worded it (or nothing, if they hid it) */
 function Fq({
@@ -1594,6 +1917,7 @@ function Text({
   inputMode,
   autoComplete,
   short,
+  check,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -1603,10 +1927,18 @@ function Text({
   inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   autoComplete?: string;
   short?: boolean;
+  /** a gentle note under the field after leaving it (never blocks) */
+  check?: (v: string) => string;
 }) {
-  return (
+  const labelled = React.useContext(QLabel);
+  const [touched, setTouched] = React.useState(false);
+  const warn = touched && check ? check(value) : "";
+  const input = (
     <input
-      className={`bf-in ${short ? "bf-short" : ""}`}
+      aria-labelledby={labelled || undefined}
+      aria-invalid={warn ? true : undefined}
+      onBlur={() => setTouched(true)}
+      className={`bf-in ${short ? "bf-short" : ""} ${warn ? "warn" : ""}`}
       value={value}
       type={type}
       dir={ltr ? "ltr" : undefined}
@@ -1617,6 +1949,17 @@ function Text({
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
     />
+  );
+  if (!check) return input;
+  return (
+    <>
+      {input}
+      {warn && (
+        <p className="bf-warn" role="status">
+          {warn}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -1634,6 +1977,7 @@ function Area({
   mic?: boolean;
 }) {
   const ref = React.useRef<HTMLTextAreaElement>(null);
+  const labelled = React.useContext(QLabel);
   const [rec, setRec] = React.useState<Rec | null>(null);
   const [live, setLive] = React.useState("");
   const latest = React.useRef(value);
@@ -1685,6 +2029,7 @@ function Area({
     <div className={`bf-area-w ${mic ? "has-mic" : ""}`}>
       <textarea
         ref={ref}
+        aria-labelledby={labelled || undefined}
         className="bf-in bf-area"
         rows={rows}
         value={live ? `${value}${value && !/\s$/.test(value) ? " " : ""}${live}` : value}
@@ -1745,9 +2090,12 @@ function Chips({
             role={single ? "radio" : undefined}
             aria-checked={single ? on : undefined}
             aria-pressed={single ? undefined : on}
-            onClick={() =>
-              onChange(single ? (on ? [] : [o]) : on ? value.filter((x) => x !== o) : [...value, o])
-            }
+            onClick={() => {
+              navigator.vibrate?.(8);
+              onChange(
+                single ? (on ? [] : [o]) : on ? value.filter((x) => x !== o) : [...value, o],
+              );
+            }}
           >
             {o}
           </button>

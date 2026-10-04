@@ -263,6 +263,12 @@ export interface Settings {
 export interface BriefService {
   name: string;
   desc: string;
+  /** free text: "250 ₪", "החל מ-1,500", "לפי הצעת מחיר" */
+  price?: string;
+}
+export interface BriefFaq {
+  q: string;
+  a: string;
 }
 export interface BriefTestimonial {
   name: string;
@@ -282,12 +288,33 @@ export interface BriefFile {
 export interface BriefAnswers {
   contactName: string;
   business: string;
+  /** field / industry, e.g. "גינון" */
+  industry: string;
   tagline: string;
   audience: string;
+  /** where they work — matters for local search */
+  area: string;
+  /** old briefs only (replaced by mainAction / pages / features) */
   goals: string[];
+  /** the one thing a visitor should do */
+  mainAction: string;
+  pages: string[];
+  features: string[];
+  currentSite: string;
+  currentNote: string;
+  deadline: string;
   about: string;
+  years: string;
+  highlights: string[];
   unique: string;
+  stats: string;
   services: BriefService[];
+  faq: BriefFaq[];
+  tone: string;
+  competitors: string;
+  reviewsLink: string;
+  whatsappSame: boolean;
+  domainMode: "" | "have" | "need";
   colorMode: "logo" | "custom" | "you";
   colors: string[];
   styles: string[];

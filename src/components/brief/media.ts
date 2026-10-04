@@ -1,4 +1,4 @@
-/* Browser-side file handling for the brief page: shrink photos, read logo colors, upload with progress */
+/* Browser-side file handling for the brief page: shrink photos, read logo colors, upload with progress, Drive import */
 import { extractPalette } from "@/components/focus/briefcore";
 
 const loadImg = (src: string) =>
@@ -33,6 +33,10 @@ export interface Prepared {
   thumb: string;
 }
 
+const IMG_RE = /\.(jpe?g|png|webp|gif|heic|heif|avif)$/i;
+/** the "files / Drive" picker allows any file (so phones show Drive) — keep only photos */
+export const isPhoto = (f: File) => f.type.startsWith("image/") || IMG_RE.test(f.name);
+
 /** photos: max 2400px JPEG (originals from phones are 4–12MB); unknown formats go as-is */
 export async function preparePhoto(file: File): Promise<Prepared> {
   const url = URL.createObjectURL(file);
@@ -61,7 +65,7 @@ export async function preparePhoto(file: File): Promise<Prepared> {
 }
 
 /** logo: uploaded untouched; we read its colors and keep a small transparent preview */
-export async function readLogo(file: File): Promise<{ thumb: string; palette: string[] }> {
+export async function readLogo(file: Blob): Promise<{ thumb: string; palette: string[] }> {
   const url = URL.createObjectURL(file);
   try {
     const img = await loadImg(url);
@@ -80,9 +84,11 @@ export async function readLogo(file: File): Promise<{ thumb: string; palette: st
   }
 }
 
+export type Kind = "logo" | "image" | "review";
+
 export function uploadFile(
   id: string,
-  kind: "logo" | "image" | "review",
+  kind: Kind,
   name: string,
   blob: Blob,
   onProgress: (p: number) => void,
@@ -107,4 +113,44 @@ export function uploadFile(
     x.onerror = () => reject(new Error("אין חיבור לאינטרנט"));
     x.send(blob);
   });
+}
+
+/* ---------------- Google Drive ---------------- */
+const post = async (id: string, op: string, body: unknown) => {
+  let r: Response;
+  try {
+    r = await fetch(`/api/brief?b=${encodeURIComponent(id)}&op=${op}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error("אין חיבור לאינטרנט");
+  }
+  return r;
+};
+const errOf = async (r: Response, fallback: string) =>
+  new Error(((await r.json().catch(() => ({}))) as { error?: string }).error || fallback);
+
+/** what's behind a pasted Drive link: one file, or the photos of a shared folder */
+export async function driveList(id: string, url: string) {
+  const r = await post(id, "drive-list", { url });
+  if (!r.ok) throw await errOf(r, "לא הצלחנו לקרוא את הקישור");
+  return (await r.json()) as { folder: boolean; items: { id: string; name: string }[] };
+}
+
+/** copy one Drive file into the brief's storage */
+export async function driveCopy(id: string, fileId: string, kind: Kind, name: string) {
+  const r = await post(id, "drive-file", { id: fileId, kind, name });
+  if (!r.ok) throw await errOf(r, "ההעתקה מדרייב נכשלה");
+  return (await r.json()) as { path: string; name: string; type: string; size: number };
+}
+
+/** fetch a Drive file through our server (the logo — so we can read its colors here) */
+export async function driveFetch(id: string, fileId: string): Promise<File> {
+  const r = await post(id, "drive-file", { id: fileId, kind: "logo", raw: 1 });
+  if (!r.ok) throw await errOf(r, "לא הצלחנו להביא את הקובץ מדרייב");
+  const name = decodeURIComponent(r.headers.get("x-file-name") || "logo");
+  const blob = await r.blob();
+  return new File([blob], name, { type: blob.type });
 }

@@ -7,12 +7,29 @@ import type { Brief, BriefAnswers } from "./types";
 export const emptyAnswers = (): BriefAnswers => ({
   contactName: "",
   business: "",
+  industry: "",
   tagline: "",
   audience: "",
+  area: "",
   goals: [],
+  mainAction: "",
+  pages: [...DEFAULT_PAGES],
+  features: [],
+  currentSite: "",
+  currentNote: "",
+  deadline: "",
   about: "",
+  years: "",
+  highlights: [],
   unique: "",
-  services: [{ name: "", desc: "" }],
+  stats: "",
+  services: [{ name: "", desc: "", price: "" }],
+  faq: [{ q: "", a: "" }],
+  tone: "",
+  competitors: "",
+  reviewsLink: "",
+  whatsappSame: true,
+  domainMode: "",
   colorMode: "logo",
   colors: [],
   styles: [],
@@ -50,13 +67,25 @@ export function cleanAnswers(raw: unknown): BriefAnswers {
       out[k] = str(r[k], k === "about" || k === "notes" ? 8000 : 2000);
   }
   out.goals = strs(r.goals, 12);
+  out.pages = Array.isArray(r.pages) ? strs(r.pages, 24) : [...DEFAULT_PAGES];
+  out.features = strs(r.features, 24);
+  out.highlights = strs(r.highlights, 16);
+  out.whatsappSame = r.whatsappSame === undefined ? true : !!r.whatsappSame;
+  out.domainMode = r.domainMode === "have" || r.domainMode === "need" ? r.domainMode : "";
+  out.faq = (Array.isArray(r.faq) ? r.faq : [])
+    .slice(0, 30)
+    .map((s: Record<string, unknown>) => ({ q: str(s?.q, 500), a: str(s?.a, 2000) }));
   out.styles = strs(r.styles, 12);
   out.colors = strs(r.colors, 8, 9).filter((c) => /^#[0-9a-f]{6}$/i.test(c));
   out.colorMode = ["logo", "custom", "you"].includes(r.colorMode as string) ? r.colorMode : "logo";
   out.noPhotos = !!r.noPhotos;
   out.services = (Array.isArray(r.services) ? r.services : [])
     .slice(0, 30)
-    .map((s: Record<string, unknown>) => ({ name: str(s?.name, 200), desc: str(s?.desc, 1500) }));
+    .map((s: Record<string, unknown>) => ({
+      name: str(s?.name, 200),
+      desc: str(s?.desc, 1500),
+      price: str(s?.price, 120),
+    }));
   out.sites = (Array.isArray(r.sites) ? r.sites : [])
     .slice(0, 10)
     .map((s: Record<string, unknown>) => ({ url: str(s?.url, 500), note: str(s?.note, 1000) }));
@@ -67,6 +96,68 @@ export function cleanAnswers(raw: unknown): BriefAnswers {
 }
 
 /* ---------------- options shown to the client ---------------- */
+export const DEFAULT_PAGES = ["דף הבית", "אודות", "שירותים", "צור קשר"];
+
+/** the one action the site is built around */
+export const ACTIONS = [
+  "שיתקשרו אליי",
+  "שישלחו וואטסאפ",
+  "שישאירו פרטים",
+  "שיקבעו תור / פגישה",
+  "שיקנו באתר",
+  "שיגיעו לעסק",
+  "שיתרשמו מהעבודות",
+];
+
+export const PAGES = [
+  "דף הבית",
+  "אודות",
+  "שירותים",
+  "גלריה / עבודות",
+  "המלצות",
+  "שאלות נפוצות",
+  "מחירון",
+  "בלוג / מאמרים",
+  "חנות",
+  "צור קשר",
+  "הכל בעמוד אחד",
+];
+
+export const FEATURES = [
+  "טופס השארת פרטים",
+  "כפתור וואטסאפ צף",
+  "קביעת תורים אונליין",
+  "תשלום באתר",
+  "מפה והגעה",
+  "הרשמה לניוזלטר",
+  "גרסה באנגלית",
+  "סרטון",
+  "אזור אישי ללקוחות",
+];
+
+export const DEADLINES = ["כמה שיותר מהר", "תוך חודש", "תוך חודשיים", "אין לחץ"];
+
+export const HIGHLIGHTS = [
+  "יחס אישי",
+  "ניסיון רב",
+  "זמינות גבוהה",
+  "מחירים הוגנים",
+  "איכות ודיוק",
+  "עמידה בזמנים",
+  "אחריות",
+  "פתרון מקצה לקצה",
+  "יצירתיות",
+  "מומחיות בנישה",
+];
+
+export const TONES: { v: string; d: string }[] = [
+  { v: "בגובה העיניים", d: "פשוט, ישיר, כמו שיחה" },
+  { v: "מקצועי ורשמי", d: "אמין, מדויק, בלי סלנג" },
+  { v: "חם ואישי", d: "מספר סיפור, מרגיש קרוב" },
+  { v: "קליל עם הומור", d: "שנון, אנרגטי" },
+];
+
+/** old briefs only */
 export const GOALS = [
   "שיתקשרו / ישאירו פרטים",
   "קביעת תור או פגישה",
@@ -183,20 +274,44 @@ export function briefMarkdown(b: Pick<Brief, "client" | "business" | "answers" |
   const reviewShots = files.filter((f) => f.kind === "review");
   const reviews = a.testimonials.filter((t) => t.text.trim());
   const services = a.services.filter((s) => s.name.trim() || s.desc.trim());
+  const faq = (a.faq || []).filter((f) => f.q.trim());
   const sites = a.sites.filter((s) => s.url.trim());
+  const whatsapp =
+    a.whatsappSame && !a.whatsapp.trim() ? a.phone && `${a.phone} (כמו הטלפון)` : a.whatsapp;
   let md = `# אפיון אתר — ${name}\n\n`;
   md += `## העסק\n`;
   md += line("שם העסק", name);
   md += line("איש קשר", a.contactName || b.client);
+  md += line("תחום", a.industry);
   md += line("במשפט אחד", a.tagline);
   md += line("קהל היעד", a.audience);
-  md += line("מטרות האתר", a.goals.join(", "));
+  md += line("אזור שירות", a.area);
+
+  const site =
+    line("הפעולה העיקרית שהגולש צריך לעשות", a.mainAction) +
+    line("עמודים", a.pages.join(", ")) +
+    line("פיצ'רים", a.features.join(", ")) +
+    line("מטרות", a.goals.join(", ")) +
+    line("אתר קיים", a.currentSite) +
+    line("מה לא עובד באתר הקיים", a.currentNote) +
+    line("לוח זמנים", a.deadline);
+  if (site) md += `\n## האתר\n${site}`;
+
   if (a.about.trim()) md += `\n## אודות (כפי שהלקוח כתב)\n${a.about.trim()}\n`;
-  if (a.unique.trim()) md += `\n## מה מייחד אותם\n${a.unique.trim()}\n`;
+  const plus =
+    line("שנים בתחום", a.years) +
+    line("חוזקות", a.highlights.join(", ")) +
+    line("מה מייחד אותם", a.unique) +
+    line("מספרים להבליט", a.stats);
+  if (plus) md += `\n## למה לבחור בהם\n${plus}`;
   if (services.length) {
     md += `\n## שירותים / מוצרים\n`;
     for (const s of services)
-      md += `- **${s.name.trim() || "ללא שם"}**${s.desc.trim() ? ` — ${s.desc.trim()}` : ""}\n`;
+      md += `- **${s.name.trim() || "ללא שם"}**${s.price?.trim() ? ` (${s.price.trim()})` : ""}${s.desc.trim() ? ` — ${s.desc.trim()}` : ""}\n`;
+  }
+  if (faq.length) {
+    md += `\n## שאלות שלקוחות שואלים\n`;
+    for (const f of faq) md += `- **${f.q.trim()}**${f.a.trim() ? `\n  ${f.a.trim()}` : ""}\n`;
   }
   md += `\n## מראה ותחושה\n`;
   md += line(
@@ -208,14 +323,16 @@ export function briefMarkdown(b: Pick<Brief, "client" | "business" | "answers" |
         : "",
   );
   md += line("סגנון", a.styles.join(", "));
+  md += line("טון כתיבה", a.tone);
   md += line("הערות על הסגנון", a.styleNote);
   md += line(
     "לוגו",
     logo.length ? logo.map((f) => f.name).join(", ") + " (בקובץ ה-ZIP)" : "אין לוגו",
   );
-  if (sites.length || a.avoid.trim()) {
+  if (sites.length || a.avoid.trim() || a.competitors.trim()) {
     md += `\n## השראה\n`;
     for (const s of sites) md += `- ${s.url.trim()}${s.note.trim() ? ` — ${s.note.trim()}` : ""}\n`;
+    md += line("מתחרים", a.competitors);
     md += line("מה לא לעשות", a.avoid);
   }
   md += `\n## תמונות\n`;
@@ -225,21 +342,25 @@ export function briefMarkdown(b: Pick<Brief, "client" | "business" | "answers" |
       ? "- אין תמונות — להשתמש בתמונות סטוק איכותיות שמתאימות לתחום\n"
       : "- לא הועלו תמונות\n";
   md += line("קישור לתמונות נוספות", a.photosLink);
-  if (reviews.length || reviewShots.length) {
+  if (reviews.length || reviewShots.length || a.reviewsLink.trim()) {
     md += `\n## המלצות לקוחות\n`;
     for (const t of reviews)
       md += `- "${t.text.trim()}"${t.name.trim() ? ` — ${t.name.trim()}` : ""}\n`;
     if (reviewShots.length)
       md += `- ${reviewShots.length} צילומי מסך של המלצות בקובץ ה-ZIP (תיקיית reviews)\n`;
+    md += line("ביקורות בגוגל / פייסבוק", a.reviewsLink);
   }
   md += `\n## פרטי קשר לאתר\n`;
   md += line("טלפון", a.phone);
-  md += line("וואטסאפ", a.whatsapp);
+  md += line("וואטסאפ", whatsapp);
   md += line("מייל", a.email);
   md += line("כתובת", a.address);
   md += line("שעות פעילות", a.hours);
   md += line("רשתות חברתיות", a.social);
-  md += line("דומיין", a.domain);
+  md += line(
+    "דומיין",
+    a.domain.trim() || (a.domainMode === "need" ? "אין עדיין — צריך לעזור לבחור ולרכוש" : ""),
+  );
   if (a.notes.trim()) md += `\n## הערות נוספות\n${a.notes.trim()}\n`;
   return md;
 }
@@ -249,9 +370,10 @@ export function briefPrompt(b: Pick<Brief, "client" | "business" | "answers" | "
   return `אתה מעצב ומפתח אתרים בכיר וקופירייטר מנוסה בעברית.
 לפניך אפיון שהלקוח מילא בעצמו. הוא כתב בחופשיות ולא בנוסח סופי — המשימה שלך:
 1. ללטש את כל הטקסטים לשפה שיווקית, קצרה ובגובה העיניים, בלי להמציא עובדות.
-2. להציע מבנה עמודים ומבנה לכל עמוד (Hero, אודות, שירותים, המלצות, צור קשר וכו').
-3. לכתוב את כל התוכן הסופי לאתר: כותרות, תתי-כותרות, טקסטים וקריאות לפעולה.
-4. להגדיר שפה עיצובית: פלטת צבעים (עם קודי HEX), טיפוגרפיה בעברית, ותחושה כללית — לפי הצבעים והסגנון שהלקוח בחר.
+2. לבנות מבנה עמודים לפי העמודים שהלקוח ביקש, ומבנה לכל עמוד (Hero, אודות, שירותים, המלצות, שאלות נפוצות, צור קשר וכו').
+3. לכתוב את כל התוכן הסופי לאתר: כותרות, תתי-כותרות, טקסטים, שאלות נפוצות וקריאות לפעולה — כולן מכוונות לפעולה העיקרית שהלקוח בחר, ובטון הכתיבה שבחר.
+4. לשלב את התחום ואזור השירות בכותרות ובטקסטים באופן טבעי (קידום אורגני מקומי), ולהציע כותרת (title) ותיאור (meta description) לכל עמוד.
+5. להגדיר שפה עיצובית: פלטת צבעים (עם קודי HEX), טיפוגרפיה בעברית, ותחושה כללית — לפי הצבעים והסגנון שהלקוח בחר.
 האתר בעברית, מימין לשמאל, מותאם קודם כל לנייד.
 
 ${briefMarkdown(b)}`;
@@ -357,7 +479,8 @@ export function briefProgress(a?: BriefAnswers): number {
   if (!a) return 0;
   const checks = [
     a.business,
-    a.tagline,
+    a.tagline || a.industry,
+    a.mainAction || a.goals.length,
     a.about,
     a.services.some((s) => s.name.trim()),
     a.colorMode === "you" || a.colors.length > 0,

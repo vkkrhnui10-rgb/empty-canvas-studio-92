@@ -20,10 +20,17 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { briefMarkdown, briefProgress, briefPrompt, emptyAnswers, makeZip } from "./briefcore";
+import {
+  briefMarkdown,
+  briefProgress,
+  briefPrompt,
+  cleanAnswers,
+  emptyAnswers,
+  makeZip,
+} from "./briefcore";
 import { WEBHOOK_BASE, useCloud } from "./cloud";
 import { actions, getState, useDB } from "./store";
-import type { Brief, BriefFile } from "./types";
+import type { Brief, BriefAnswers, BriefFile } from "./types";
 import { Badge, Btn, Card, EmptyState, Field, Input, Modal, PageHeader, Select } from "./ui";
 import { useNav } from "./nav";
 import { download, timeAgo, waLink } from "./utils";
@@ -520,6 +527,7 @@ function BriefDetail({ b }: { b: Brief }) {
             <ShareBox b={b} phone={phone} />
           </Card>
           <Card className="space-y-2 p-5 text-sm">
+            <ClientProgress id={b.id} />
             <p className="text-[color:var(--focus-muted)]">
               כשהלקוח ישלח את השאלון תקבל התראה, והתשובות יופיעו כאן.
             </p>
@@ -532,20 +540,35 @@ function BriefDetail({ b }: { b: Brief }) {
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
           <div className="space-y-4">
             <Section title="העסק">
+              <Row l="תחום" v={a.industry} />
               <Row l="במשפט אחד" v={a.tagline} />
               <Row l="קהל יעד" v={a.audience} />
-              <Row l="מטרות האתר" v={a.goals.join(" • ")} />
+              <Row l="אזור שירות" v={a.area} />
               <Row l="איש קשר" v={a.contactName || b.client} />
             </Section>
-            {(a.about.trim() || a.unique.trim()) && (
+            <Section title="האתר">
+              {a.mainAction && (
+                <p className="mb-2">
+                  <span className="text-[color:var(--focus-muted)]">הפעולה העיקרית: </span>
+                  <b>{a.mainAction}</b>
+                </p>
+              )}
+              <Tags l="עמודים" v={a.pages} />
+              <Tags l="פיצ'רים" v={a.features} />
+              <Row l="מטרות" v={a.goals.join(" • ")} />
+              <Row l="אתר קיים" v={a.currentSite} ltr />
+              <Row l="מה לא עובד" v={a.currentNote} />
+              <Row l="לוח זמנים" v={a.deadline} />
+            </Section>
+            {(a.about.trim() || a.unique.trim() || a.highlights.length > 0 || a.stats.trim()) && (
               <Section title="אודות">
                 {a.about.trim() && <p className="whitespace-pre-line">{a.about.trim()}</p>}
-                {a.unique.trim() && (
-                  <p className="mt-3 whitespace-pre-line">
-                    <b>מה מייחד אותם: </b>
-                    {a.unique.trim()}
-                  </p>
-                )}
+                <div className={a.about.trim() ? "mt-3" : ""}>
+                  <Row l="שנים בתחום" v={a.years} />
+                  <Row l="חוזקות" v={a.highlights.join(" • ")} />
+                  <Row l="מייחד אותם" v={a.unique} />
+                  <Row l="מספרים" v={a.stats} />
+                </div>
               </Section>
             )}
             {a.services.some((s) => s.name.trim() || s.desc.trim()) && (
@@ -556,6 +579,11 @@ function BriefDetail({ b }: { b: Brief }) {
                     .map((s, i) => (
                       <li key={i}>
                         <b>{s.name || "ללא שם"}</b>
+                        {s.price?.trim() && (
+                          <span className="ms-1.5 rounded-full bg-[var(--focus-bg2)] px-2 py-0.5 text-xs font-semibold">
+                            {s.price}
+                          </span>
+                        )}
                         {s.desc && (
                           <span className="text-[color:var(--focus-muted)]"> — {s.desc}</span>
                         )}
@@ -564,7 +592,25 @@ function BriefDetail({ b }: { b: Brief }) {
                 </ul>
               </Section>
             )}
-            {(a.sites.some((s) => s.url.trim()) || a.avoid.trim()) && (
+            {a.faq.some((f) => f.q.trim()) && (
+              <Section title="שאלות נפוצות">
+                <ul className="space-y-2">
+                  {a.faq
+                    .filter((f) => f.q.trim())
+                    .map((f, i) => (
+                      <li key={i}>
+                        <b>{f.q}</b>
+                        {f.a.trim() && (
+                          <p className="whitespace-pre-line text-[color:var(--focus-muted)]">
+                            {f.a}
+                          </p>
+                        )}
+                      </li>
+                    ))}
+                </ul>
+              </Section>
+            )}
+            {(a.sites.some((s) => s.url.trim()) || a.avoid.trim() || a.competitors.trim()) && (
               <Section title="השראה">
                 <ul className="space-y-1.5">
                   {a.sites
@@ -586,6 +632,7 @@ function BriefDetail({ b }: { b: Brief }) {
                       </li>
                     ))}
                 </ul>
+                <Row l="מתחרים" v={a.competitors} />
                 <Row l="לא רוצים" v={a.avoid} />
               </Section>
             )}
@@ -619,7 +666,7 @@ function BriefDetail({ b }: { b: Brief }) {
               {err && <p className="mt-2 text-xs text-[color:var(--focus-destructive)]">{err}</p>}
               <Row l="קישור לתמונות" v={a.photosLink} link />
             </Section>
-            {(reviews.length > 0 || shots.length > 0) && (
+            {(reviews.length > 0 || shots.length > 0 || a.reviewsLink.trim()) && (
               <Section title={`המלצות לקוחות (${reviews.length + shots.length})`}>
                 {reviews.length > 0 && (
                   <ul className="space-y-3">
@@ -662,16 +709,25 @@ function BriefDetail({ b }: { b: Brief }) {
                     ))}
                   </div>
                 )}
+                <Row l="ביקורות" v={a.reviewsLink} link />
               </Section>
             )}
             <Section title="פרטי קשר לאתר">
               <Row l="טלפון" v={a.phone} ltr />
-              <Row l="וואטסאפ" v={a.whatsapp} ltr />
+              <Row
+                l="וואטסאפ"
+                v={a.whatsappSame && !a.whatsapp.trim() ? a.phone && "כמו הטלפון" : a.whatsapp}
+                ltr={!a.whatsappSame}
+              />
               <Row l="מייל" v={a.email} ltr />
               <Row l="כתובת" v={a.address} />
               <Row l="שעות" v={a.hours} />
               <Row l="רשתות" v={a.social} />
-              <Row l="דומיין" v={a.domain} ltr />
+              <Row
+                l="דומיין"
+                v={a.domain || (a.domainMode === "need" ? "אין עדיין — צריך עזרה" : "")}
+                ltr={!!a.domain}
+              />
             </Section>
             {a.notes.trim() && (
               <Section title="הערות">
@@ -720,6 +776,7 @@ function BriefDetail({ b }: { b: Brief }) {
                 </div>
               ) : null}
               <Row l="סגנון" v={a.styles.join(" • ")} />
+              <Row l="טון" v={a.tone} />
               <Row l="הערות" v={a.styleNote} />
             </Card>
             <Card className="space-y-2 p-4">
@@ -773,6 +830,57 @@ function BriefDetail({ b }: { b: Brief }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** where the client is in the questionnaire (from the draft it saves as it goes) */
+function ClientProgress({ id }: { id: string }) {
+  const [d, setD] = React.useState<{ at: number; step: number; answers: BriefAnswers } | null>();
+  React.useEffect(() => {
+    let dead = false;
+    fetch(`/api/brief?b=${encodeURIComponent(id)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => !dead && setD(j?.draft?.answers ? j.draft : null))
+      .catch(() => !dead && setD(null));
+    return () => {
+      dead = true;
+    };
+  }, [id]);
+  if (d === undefined) return null;
+  if (!d) return <p className="font-medium">הלקוח עוד לא התחיל למלא</p>;
+  const pct = Math.round(briefProgress(cleanAnswers(d.answers)) * 100);
+  return (
+    <div className="space-y-1.5">
+      <p className="font-medium">הלקוח התחיל למלא · שלב {d.step} מתוך 9</p>
+      <div className="h-1.5 overflow-hidden rounded-full bg-[var(--focus-bg2)]">
+        <i
+          className="block h-full rounded-full bg-[var(--focus-primary)]"
+          style={{ width: `${Math.max(4, pct)}%` }}
+        />
+      </div>
+      <p className="text-xs text-[color:var(--focus-muted)]">
+        {pct}% מולא · עודכן {timeAgo(d.at)}
+      </p>
+    </div>
+  );
+}
+
+function Tags({ l, v }: { l: string; v: string[] }) {
+  if (!v.length) return null;
+  return (
+    <div className="flex gap-2 py-1 text-[14px]">
+      <span className="w-24 flex-none pt-0.5 text-[color:var(--focus-muted)]">{l}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {v.map((x) => (
+          <span
+            key={x}
+            className="rounded-full border border-[color:var(--focus-border)] px-2.5 py-0.5 text-[13px]"
+          >
+            {x}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }

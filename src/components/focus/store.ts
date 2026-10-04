@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import type { OrderRow, ReportRow } from "./growreport";
 import { nameKey, samePerson } from "./growreport";
 import { briefId, cleanAnswers } from "./briefcore";
+import type { BriefForm } from "./briefform";
 import type {
   Alert,
   Brief,
@@ -241,6 +242,7 @@ function migrate(raw: any): DB {
     sessions: (raw.sessions || []).map((s: { projectId?: string }) => ({ projectId: "", ...s })),
     activity: raw.activity || [],
     briefs: Array.isArray(raw.briefs) ? raw.briefs : [],
+    briefForm: raw.briefForm && typeof raw.briefForm === "object" ? raw.briefForm : undefined,
     growLog: raw.growLog || [],
     soContacts: Array.isArray(raw.soContacts) ? raw.soContacts : [],
   };
@@ -1473,6 +1475,12 @@ export const actions = {
       if (b.projectId) log(d, b.projectId, "נוצר קישור לשאלון אפיון");
     });
     return b;
+  },
+  /** the questionnaire's shape — every client link uses it right away */
+  setBriefForm(f: BriefForm | undefined) {
+    update((d) => {
+      d.briefForm = f && Object.keys(f).length ? f : undefined;
+    });
   },
   patchBrief(id: string, patch: Partial<Brief>) {
     update((d) => {

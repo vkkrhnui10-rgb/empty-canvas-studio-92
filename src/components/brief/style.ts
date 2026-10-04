@@ -9,6 +9,7 @@ export const BRIEF_CSS = `
 :where(.bf) button{color:inherit}
 .bf :focus-visible{outline:2px solid var(--ink);outline-offset:2px}
 
+.bf-preview{background:#16183d;color:#fff;text-align:center;font-size:12px;padding:5px 10px;letter-spacing:.02em}
 /* header */
 .bf-top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
 .bf-top-in{max-width:640px;margin:0 auto;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}

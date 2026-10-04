@@ -15,6 +15,7 @@ import {
   Link2,
   MessageCircle,
   Plus,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -65,6 +66,10 @@ const copy = async (txt: string, ok = "הועתק") => {
     toast.error("ההעתקה נכשלה");
   }
 };
+
+const BriefFormEditor = React.lazy(() =>
+  import("./briefformeditor").then((m) => ({ default: m.BriefFormEditor })),
+);
 
 const nameOf = (b: Brief) => b.answers?.business || b.business || b.client || "ללא שם";
 
@@ -166,6 +171,12 @@ export function BriefsView({ openId }: { openId?: string | null }) {
   const cloud = useCloud();
   const nav = useNav();
   const [creating, setCreating] = React.useState(false);
+  if (openId === "form")
+    return (
+      <React.Suspense fallback={null}>
+        <BriefFormEditor />
+      </React.Suspense>
+    );
   const open = openId ? db.briefs.find((b) => b.id === openId) : undefined;
   if (open) return <BriefDetail b={open} />;
 
@@ -184,9 +195,18 @@ export function BriefsView({ openId }: { openId?: string | null }) {
             : "שאלון ללקוח: הוא עונה, אתה מקבל סיכום, פרומפט ו-ZIP של התמונות"
         }
         actions={
-          <Btn variant="primary" icon={Plus} onClick={() => setCreating(true)}>
-            אפיון חדש
-          </Btn>
+          <div className="flex gap-2">
+            <Btn
+              variant="outline"
+              icon={SlidersHorizontal}
+              onClick={() => nav.go("briefs", "form")}
+            >
+              עריכת השאלון
+            </Btn>
+            <Btn variant="primary" icon={Plus} onClick={() => setCreating(true)}>
+              אפיון חדש
+            </Btn>
+          </div>
         }
       />
       {!cloud.session && (
@@ -729,6 +749,20 @@ function BriefDetail({ b }: { b: Brief }) {
                 ltr={!!a.domain}
               />
             </Section>
+            {a.custom.some((c) => (Array.isArray(c.value) ? c.value.length : c.value.trim())) && (
+              <Section title="שאלות נוספות">
+                {a.custom
+                  .filter((c) => (Array.isArray(c.value) ? c.value.length : c.value.trim()))
+                  .map((c) => (
+                    <div key={c.id} className="py-1">
+                      <p className="text-[13px] text-[color:var(--focus-muted)]">{c.label}</p>
+                      <p className="whitespace-pre-line">
+                        {Array.isArray(c.value) ? c.value.join(" • ") : c.value}
+                      </p>
+                    </div>
+                  ))}
+              </Section>
+            )}
             {a.notes.trim() && (
               <Section title="הערות">
                 <p className="whitespace-pre-line">{a.notes}</p>

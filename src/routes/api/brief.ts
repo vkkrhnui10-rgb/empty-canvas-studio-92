@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { cleanAnswers } from "@/components/focus/briefcore";
+import { cleanForm } from "@/components/focus/briefform";
 import {
   dispositionName,
   MIME,
@@ -12,7 +13,7 @@ import {
 /**
  * Website brief (questionnaire) — the public side of /b/<id>.
  *
- *   GET  ?b=<id>                         → { client, business, owner, status, answers? }
+ *   GET  ?b=<id>                         → { client, business, owner, status, answers?, form, draft }
  *   POST ?b=<id>&op=upload&kind=logo|image|review&name=…   (raw file body) → { path }
  *   POST ?b=<id>&op=submit  { answers, files }      → lands in grow_events (kind "brief")
  *   POST ?b=<id>&op=draft   { answers, files, step } → saved so the client can continue on another device
@@ -50,6 +51,7 @@ const admin = async (): Promise<Admin> =>
 interface Owner {
   userId: string;
   ownerName: string;
+  form: unknown;
   brief: Record<string, unknown>;
 }
 
@@ -57,7 +59,7 @@ interface Owner {
 async function findOwner(sb: Admin, id: string): Promise<Owner | null> {
   const { data, error } = await sb
     .from("focus_state")
-    .select("user_id, briefs:data->briefs, owner:data->settings->>ownerName")
+    .select("user_id, briefs:data->briefs, form:data->briefForm, owner:data->settings->>ownerName")
     .filter("data->briefs", "cs", JSON.stringify([{ id }]))
     .limit(1);
   if (error || !data?.length) return null;
@@ -66,7 +68,7 @@ async function findOwner(sb: Admin, id: string): Promise<Owner | null> {
     (b: Record<string, unknown>) => b?.id === id,
   );
   if (!brief) return null;
-  return { userId: row.user_id, ownerName: row.owner || "", brief };
+  return { userId: row.user_id, ownerName: row.owner || "", form: row.form, brief };
 }
 
 let bucketReady = false;
@@ -166,6 +168,7 @@ export const Route = createFileRoute("/api/brief")({
           /* no draft yet */
         }
         return json({
+          form: cleanForm(o.form),
           draft,
           client: o.brief.client ?? "",
           business: o.brief.business ?? "",

@@ -13,12 +13,17 @@ import {
   emptyAnswers,
   FEATURES,
   HIGHLIGHTS,
-  PAGES,
-  STYLES,
   TONES,
 } from "@/components/focus/briefcore";
+import {
+  resolveForm,
+  type BriefForm,
+  type CustomQ,
+  type ResolvedForm,
+  type StepKey,
+} from "@/components/focus/briefform";
 import { driveThumb } from "@/components/focus/drive";
-import type { BriefAnswers } from "@/components/focus/types";
+import type { BriefAnswers, BriefCustomAnswer } from "@/components/focus/types";
 import {
   driveCopy,
   driveFetch,
@@ -66,26 +71,15 @@ interface Info {
   status: string;
   answers: BriefAnswers | null;
   draft: ServerDraft | null;
+  form?: BriefForm;
 }
 
-const STEPS = [
-  { k: "intro", t: "", h: "" },
-  { k: "biz", t: "העסק", h: "כמה מילים על מה שאתם עושים ולמי." },
-  { k: "site", t: "האתר", h: "מה האתר צריך לעשות בשבילכם. מסמנים בלחיצה." },
-  { k: "story", t: "אודות", h: "הבסיס לעמוד האודות. כתבו או הקליטו חופשי, אנחנו נלטש." },
-  { k: "services", t: "שירותים", h: "מה אפשר לקנות או להזמין מכם. שם קצר ומשפט הסבר מספיקים." },
-  { k: "look", t: "מראה", h: "אם יש לוגו, נשאב ממנו את הצבעים של האתר." },
-  { k: "inspo", t: "השראה", h: "אתרים שאהבתם, גם מתחומים אחרים, ומה בטוח לא." },
-  { k: "photos", t: "תמונות", h: "של העסק, העבודות, הצוות. אנחנו נבחר ונעבד אותן." },
-  {
-    k: "reviews",
-    t: "המלצות",
-    h: "מה לקוחות אומרים עליכם. המלצות אמיתיות הן אחד הדברים שהכי משפיעים באתר.",
-  },
-  { k: "contact", t: "פרטי התקשרות", h: "מה יופיע באתר כדי שלקוחות יוכלו לפנות אליכם." },
-] as const;
-const LAST = STEPS.length - 1;
-const stepOf = (k: (typeof STEPS)[number]["k"]) => STEPS.findIndex((s) => s.k === k);
+type StepK = "intro" | StepKey;
+/** the id the owner's editor uses to show a live preview (no network, nothing saved) */
+export const PREVIEW_ID = "preview";
+
+/** the owner's wording for each question (context, so every field reads it) */
+const FormCtx = React.createContext<ResolvedForm>(resolveForm());
 
 const keyOf = (id: string) => `focus-brief-${id}`;
 const rid = () => Math.random().toString(36).slice(2, 10);
@@ -173,6 +167,7 @@ const nextField = (e: React.KeyboardEvent<HTMLElement>) => {
 };
 
 export default function BriefPage({ id }: { id: string }) {
+  const preview = id === PREVIEW_ID;
   const [info, setInfo] = React.useState<Info | null>(null);
   const [fail, setFail] = React.useState<"" | "missing" | "net">("");
   const [a, setA] = React.useState<BriefAnswers>(emptyAnswers);
@@ -190,7 +185,23 @@ export default function BriefPage({ id }: { id: string }) {
   const kb = useKeyboardOpen();
   const canSpeak = React.useMemo(() => !!speechCtor(), []);
 
+  // preview: the editor sends the form over postMessage as it changes
+  React.useEffect(() => {
+    if (!preview) return;
+    setInfo({ client: "", business: "", owner: "", status: "sent", answers: null, draft: null });
+    setReady(true);
+    const on = (e: MessageEvent) => {
+      if (e.origin !== location.origin || e.data?.type !== "focus-brief-form") return;
+      setInfo((x) => x && { ...x, form: e.data.form, owner: e.data.owner || "" });
+      if (typeof e.data.step === "number") setStep(e.data.step);
+    };
+    window.addEventListener("message", on);
+    window.parent?.postMessage({ type: "focus-brief-ready" }, location.origin);
+    return () => window.removeEventListener("message", on);
+  }, [preview]);
+
   const fetchInfo = React.useCallback(() => {
+    if (preview) return;
     setFail("");
     fetch(`/api/brief?b=${encodeURIComponent(id)}`)
       .then(async (r) => {
@@ -229,18 +240,18 @@ export default function BriefPage({ id }: { id: string }) {
         }
         setA(ans);
         setFiles(fl);
-        setStep(Math.min(st, LAST));
+        setStep(st);
         setSent(local?.sent ?? (j.status === "done" ? Date.now() : undefined));
-        synced.current = draftBody(ans, fl, Math.min(st, LAST));
+        synced.current = draftBody(ans, fl, st);
         setReady(true);
       })
       .catch(() => setFail("net"));
-  }, [id]);
+  }, [id, preview]);
   React.useEffect(fetchInfo, [fetchInfo]);
 
   // autosave on this device
   React.useEffect(() => {
-    if (!ready) return;
+    if (!ready || preview) return;
     const t = setTimeout(() => {
       try {
         const s: Saved = {
@@ -257,7 +268,7 @@ export default function BriefPage({ id }: { id: string }) {
       }
     }, 300);
     return () => clearTimeout(t);
-  }, [a, files, step, sent, palette, ready, id]);
+  }, [a, files, step, sent, palette, ready, id, preview]);
 
   // …and on the server, so the link opens with the answers on any device
   const pushDraft = React.useCallback(
@@ -281,13 +292,13 @@ export default function BriefPage({ id }: { id: string }) {
     [id],
   );
   React.useEffect(() => {
-    if (!ready || sent) return;
+    if (!ready || sent || preview) return;
     const body = draftBody(a, files, step);
     if (body === synced.current) return;
     pending.current = body;
     const t = setTimeout(() => void pushDraft(body), 2500);
     return () => clearTimeout(t);
-  }, [a, files, step, ready, sent, pushDraft]);
+  }, [a, files, step, ready, sent, preview, pushDraft]);
   React.useEffect(() => {
     const flush = () => {
       if (document.visibilityState === "hidden" && pending.current)
@@ -304,6 +315,7 @@ export default function BriefPage({ id }: { id: string }) {
 
   /* ---------- uploads ---------- */
   const startUpload = async (f: UFile, blob: Blob) => {
+    if (preview) return patchFile(f.key, { status: "done", prog: 1, path: `preview/${f.key}` });
     patchFile(f.key, { status: "up", prog: 0, err: undefined });
     try {
       const path = await uploadFile(id, f.kind, f.name, blob, (p) => patchFile(f.key, { prog: p }));
@@ -388,6 +400,7 @@ export default function BriefPage({ id }: { id: string }) {
 
   /** returns how many files were found */
   const importDrive = async (url: string, kind: Kind): Promise<number> => {
+    if (preview) throw new Error("בתצוגה המקדימה לא מייבאים. אצל הלקוח זה יעבוד");
     const { items } = await driveList(id, url);
     if (kind === "logo") {
       await addLogo(await driveFetch(id, items[0].id));
@@ -419,6 +432,19 @@ export default function BriefPage({ id }: { id: string }) {
   };
   const removeFile = (key: string) => setFiles((fs) => fs.filter((f) => f.key !== key));
 
+  /* ---------- the owner's form ---------- */
+  const F = React.useMemo(() => resolveForm(info?.form), [info?.form]);
+  const STEPS: { k: StepK; t: string; h: string }[] = [{ k: "intro", t: "", h: "" }, ...F.steps];
+  const LAST = STEPS.length - 1;
+  const stepOf = (k: StepK) => STEPS.findIndex((x) => x.k === k);
+  const setCustom = (q: CustomQ, value: string | string[]) =>
+    setA((x) => {
+      const rest = x.custom.filter((c) => c.id !== q.id);
+      const c: BriefCustomAnswer = { id: q.id, label: q.label, value };
+      const i = x.custom.findIndex((c) => c.id === q.id);
+      return { ...x, custom: i < 0 ? [...rest, c] : x.custom.map((y) => (y.id === q.id ? c : y)) };
+    });
+
   /* ---------- navigation ---------- */
   const go = (n: number) => {
     setStep(Math.max(0, Math.min(LAST, n)));
@@ -427,6 +453,7 @@ export default function BriefPage({ id }: { id: string }) {
   const uploading = files.filter((f) => f.status === "up").length;
 
   const submit = async () => {
+    if (preview) return setSent(Date.now());
     setSendErr("");
     setSending(true);
     try {
@@ -460,14 +487,16 @@ export default function BriefPage({ id }: { id: string }) {
 
   /** what's still worth filling before sending — each one jumps to its step */
   const missing: [string, number][] = [];
-  if (!a.business.trim()) missing.push(["שם העסק", stepOf("biz")]);
-  if (!a.mainAction && !a.goals.length) missing.push(["מה הגולש צריך לעשות", stepOf("site")]);
-  if (!a.about.trim() && !a.tagline.trim()) missing.push(["כמה מילים על העסק", stepOf("story")]);
-  if (!a.services.some((s) => s.name.trim())) missing.push(["שירותים", stepOf("services")]);
-  if (!logo && !a.styles.length) missing.push(["לוגו או סגנון", stepOf("look")]);
-  if (!photos.length && !a.noPhotos && !a.photosLink.trim())
-    missing.push(["תמונות", stepOf("photos")]);
-  if (!a.phone.trim() && !a.email.trim()) missing.push(["טלפון או מייל", stepOf("contact")]);
+  const need = (field: string, empty: boolean, label: string, k: StepKey) => {
+    if (empty && F.on(field) && stepOf(k) > 0) missing.push([label, stepOf(k)]);
+  };
+  need("business", !a.business.trim(), "שם העסק", "biz");
+  need("mainAction", !a.mainAction && !a.goals.length, "מה הגולש צריך לעשות", "site");
+  need("about", !a.about.trim() && !a.tagline.trim(), "כמה מילים על העסק", "story");
+  need("services", !a.services.some((s) => s.name.trim()), "שירותים", "services");
+  need("logo", !logo, "לוגו", "look");
+  need("photos", !photos.length && !a.noPhotos && !a.photosLink.trim(), "תמונות", "photos");
+  need("phone", !a.phone.trim() && !a.email.trim(), "טלפון או מייל", "contact");
 
   /* ---------- status screens ---------- */
   if (fail || !ready || !info)
@@ -568,6 +597,10 @@ export default function BriefPage({ id }: { id: string }) {
     );
 
   /* ---------- the form ---------- */
+  if (step > LAST) {
+    setStep(LAST);
+    return null;
+  }
   const S = STEPS[step];
   const listSet = <K extends "services" | "sites" | "testimonials" | "faq">(
     k: K,
@@ -584,821 +617,820 @@ export default function BriefPage({ id }: { id: string }) {
     set(k, (a[k] as unknown[]).filter((_, j) => j !== i) as never);
 
   return (
-    <div className={`bf ${kb ? "kb" : ""}`}>
-      <style>{BRIEF_CSS}</style>
-      <header className="bf-top">
-        <div className="bf-top-in">
-          <span className="bf-brand">{title || "שאלון לבניית אתר"}</span>
+    <FormCtx.Provider value={F}>
+      <div className={`bf ${kb ? "kb" : ""}`}>
+        <style>{BRIEF_CSS}</style>
+        {preview && <div className="bf-preview">תצוגה מקדימה · שום דבר לא נשמר</div>}
+        <header className="bf-top">
+          <div className="bf-top-in">
+            <span className="bf-brand">{title || "שאלון לבניית אתר"}</span>
+            {step > 0 && !preview && (
+              <span className={`bf-saved ${saved}`} aria-live="polite">
+                {saved === "saving" ? "שומר…" : "נשמר"}
+              </span>
+            )}
+          </div>
           {step > 0 && (
-            <span className={`bf-saved ${saved}`} aria-live="polite">
-              {saved === "saving" ? "שומר…" : "נשמר"}
-            </span>
+            <nav className="bf-steps" aria-label="שלבים">
+              {STEPS.slice(1).map((s, i) => (
+                <button
+                  key={s.k}
+                  className={i + 1 === step ? "on" : i + 1 < step ? "past" : ""}
+                  aria-label={`${i + 1}. ${s.t}`}
+                  aria-current={i + 1 === step ? "step" : undefined}
+                  onClick={() => go(i + 1)}
+                />
+              ))}
+            </nav>
           )}
-        </div>
-        {step > 0 && (
-          <nav className="bf-steps" aria-label="שלבים">
-            {STEPS.slice(1).map((s, i) => (
-              <button
-                key={s.k}
-                className={i + 1 === step ? "on" : i + 1 < step ? "past" : ""}
-                aria-label={`${i + 1}. ${s.t}`}
-                aria-current={i + 1 === step ? "step" : undefined}
-                onClick={() => go(i + 1)}
-              />
-            ))}
-          </nav>
-        )}
-      </header>
+        </header>
 
-      <main className="bf-main" onKeyDown={nextField}>
-        <div className="bf-step" key={step}>
-          {step === 0 ? (
-            <section className="bf-hero">
-              <h1 className="bf-h1">כמה שאלות לפני שמתחילים לבנות את האתר</h1>
-              <div className="bf-bubble">
-                {first(a.contactName) ? `היי ${first(a.contactName)}! ` : "היי! "}
-                כאן {owner || "הלל רימון"}. מהתשובות שלכם נכתוב את הטקסטים, נבחר צבעים ונעצב את
-                האתר.
-              </div>
-              <p className="bf-hero-p">
-                לא צריך לנסח מושלם. כתבו כמו שהייתם מסבירים לחבר, ואנחנו נלטש. אפשר לדלג על כל שאלה.
-              </p>
-              <div className="bf-intro-meta">
-                <span>{LAST} שלבים קצרים</span>
-                <span>בערך 7 דקות</span>
-                {canSpeak && <span>אפשר להקליט במקום להקליד</span>}
-                <span>נשמר. אפשר להמשיך מכל מכשיר</span>
-              </div>
-              <img
-                className="bf-mascot"
-                src="/brief/rimon-hello.webp"
-                alt=""
-                width={520}
-                height={621}
-              />
-            </section>
-          ) : (
-            <>
-              <p className="bf-kicker">
-                שלב {step} מתוך {LAST}
-              </p>
-              <h2 className="bf-h2">{S.t}</h2>
-              <p className="bf-hint">{S.h}</p>
-              {S.k === "contact" && (
-                <div className="bf-cheer">
-                  <img src="/brief/rimon-point.webp" alt="" width={520} height={678} />
-                  <span className="bf-bubble">כמעט סיימנו! עוד כמה פרטים ושולחים.</span>
+        <main className="bf-main" onKeyDown={nextField}>
+          <div className="bf-step" key={step}>
+            {step === 0 ? (
+              <section className="bf-hero">
+                <h1 className="bf-h1">כמה שאלות לפני שמתחילים לבנות את האתר</h1>
+                <div className="bf-bubble">
+                  {first(a.contactName) ? `היי ${first(a.contactName)}! ` : "היי! "}
+                  כאן {owner || "הלל רימון"}. {F.intro}
                 </div>
-              )}
-              <div className="bf-card">
-                {S.k === "biz" && (
-                  <>
-                    <Q label="שם העסק">
-                      <Text
-                        value={a.business}
-                        onChange={(v) => set("business", v)}
-                        placeholder="למשל: גני השרון"
-                        autoComplete="organization"
-                      />
-                    </Q>
-                    <Q label="השם שלכם" optional>
-                      <Text
-                        value={a.contactName}
-                        onChange={(v) => set("contactName", v)}
-                        autoComplete="name"
-                      />
-                    </Q>
-                    <Q label="תחום">
-                      <Text
-                        value={a.industry}
-                        onChange={(v) => set("industry", v)}
-                        placeholder="למשל: גינון, קוסמטיקה, עריכת דין"
-                      />
-                    </Q>
-                    <Q label="מה אתם עושים, במשפט אחד" hint="זה יכול להפוך לכותרת הראשית של האתר">
-                      <Area
-                        value={a.tagline}
-                        onChange={(v) => set("tagline", v)}
-                        rows={1}
-                        placeholder="למשל: גינות מעוצבות לבתים פרטיים בשרון"
-                        mic={canSpeak}
-                      />
-                    </Q>
-                    <Q label="מי הלקוחות שלכם?">
-                      <Text
-                        value={a.audience}
-                        onChange={(v) => set("audience", v)}
-                        placeholder="למשל: משפחות צעירות, עסקים קטנים"
-                      />
-                    </Q>
-                    <Q label="איפה אתם נותנים שירות?" hint="עוזר להופיע בגוגל כשמחפשים באזור">
-                      <Text
-                        value={a.area}
-                        onChange={(v) => set("area", v)}
-                        placeholder="למשל: השרון והמרכז, כל הארץ, אונליין"
-                      />
-                    </Q>
-                  </>
+                <p className="bf-hero-p">
+                  לא צריך לנסח מושלם. כתבו כמו שהייתם מסבירים לחבר, ואנחנו נלטש. אפשר לדלג על כל
+                  שאלה.
+                </p>
+                <div className="bf-intro-meta">
+                  <span>{LAST} שלבים קצרים</span>
+                  <span>בערך 7 דקות</span>
+                  {canSpeak && <span>אפשר להקליט במקום להקליד</span>}
+                  <span>נשמר. אפשר להמשיך מכל מכשיר</span>
+                </div>
+                <img
+                  className="bf-mascot"
+                  src="/brief/rimon-hello.webp"
+                  alt=""
+                  width={520}
+                  height={621}
+                />
+              </section>
+            ) : (
+              <>
+                <p className="bf-kicker">
+                  שלב {step} מתוך {LAST}
+                </p>
+                <h2 className="bf-h2">{S.t}</h2>
+                <p className="bf-hint">{S.h}</p>
+                {step === LAST && (
+                  <div className="bf-cheer">
+                    <img src="/brief/rimon-point.webp" alt="" width={520} height={678} />
+                    <span className="bf-bubble">כמעט סיימנו! עוד כמה פרטים ושולחים.</span>
+                  </div>
                 )}
-
-                {S.k === "site" && (
-                  <>
-                    <Q label="מה הכי חשוב שגולש יעשה באתר?" hint="בחרו אחד. סביבו נבנה את האתר">
-                      <Chips
-                        options={ACTIONS}
-                        value={a.mainAction ? [a.mainAction] : []}
-                        single
-                        onChange={(v) => set("mainAction", v[0] || "")}
-                      />
-                    </Q>
-                    <Q label="אילו עמודים צריך?" hint="סימנו את הבסיס, שנו כרצונכם">
-                      <Chips options={PAGES} value={a.pages} onChange={(v) => set("pages", v)} />
-                    </Q>
-                    <Q label="משהו מזה יעזור לכם?" optional>
-                      <Chips
-                        options={FEATURES}
-                        value={a.features}
-                        onChange={(v) => set("features", v)}
-                      />
-                    </Q>
-                    <Q label="יש לכם היום אתר?" optional>
-                      <Text
-                        value={a.currentSite}
-                        onChange={(v) => set("currentSite", v)}
-                        placeholder="www.example.co.il"
-                        ltr
-                        inputMode="url"
-                      />
-                    </Q>
-                    {a.currentSite.trim() && (
-                      <Q label="מה לא עובד בו?" optional>
+                <div className="bf-card">
+                  {S.k === "biz" && (
+                    <>
+                      <Fq k="business">
                         <Text
-                          value={a.currentNote}
-                          onChange={(v) => set("currentNote", v)}
-                          placeholder="למשל: נראה מיושן, לא מביא פניות, קשה לעדכן"
+                          value={a.business}
+                          onChange={(v) => set("business", v)}
+                          placeholder="למשל: גני השרון"
+                          autoComplete="organization"
                         />
-                      </Q>
-                    )}
-                    <Q label="מתי תרצו שהאתר יעלה?">
-                      <Chips
-                        options={DEADLINES}
-                        value={a.deadline ? [a.deadline] : []}
-                        single
-                        onChange={(v) => set("deadline", v[0] || "")}
-                      />
-                    </Q>
-                  </>
-                )}
-
-                {S.k === "story" && (
-                  <>
-                    <Q label="ספרו על העסק" hint="איך התחלתם, למה דווקא זה, מה אתם אוהבים בעבודה">
-                      <Area
-                        value={a.about}
-                        onChange={(v) => set("about", v)}
-                        rows={6}
-                        mic={canSpeak}
-                      />
-                    </Q>
-                    <Q label="כמה שנים אתם בתחום?" optional>
-                      <Text
-                        value={a.years}
-                        onChange={(v) => set("years", v)}
-                        inputMode="numeric"
-                        placeholder="למשל: 12"
-                        short
-                      />
-                    </Q>
-                    <Q label="במה אתם חזקים?" hint="אפשר לבחור כמה">
-                      <Chips
-                        options={HIGHLIGHTS}
-                        value={a.highlights}
-                        onChange={(v) => set("highlights", v)}
-                      />
-                    </Q>
-                    <Q label="ומה באמת מייחד אתכם?" optional>
-                      <Area
-                        value={a.unique}
-                        onChange={(v) => set("unique", v)}
-                        rows={2}
-                        placeholder="משהו שמתחרים לא יכולים להגיד על עצמם"
-                        mic={canSpeak}
-                      />
-                    </Q>
-                    <Q label="מספרים שאפשר להתגאות בהם" optional hint="יופיעו בגדול באתר">
-                      <Text
-                        value={a.stats}
-                        onChange={(v) => set("stats", v)}
-                        placeholder="למשל: 500 לקוחות, 1,200 גינות, דירוג 4.9 בגוגל"
-                      />
-                    </Q>
-                  </>
-                )}
-
-                {S.k === "services" && (
-                  <>
-                    <div className="bf-group">
-                      {a.services.map((s, i) => (
-                        <div className="bf-item" key={i}>
-                          <div className="bf-row">
-                            <input
-                              className="bf-in"
-                              value={s.name}
-                              placeholder="שם השירות"
-                              aria-label={`שירות ${i + 1}`}
-                              enterKeyHint="next"
-                              onChange={(e) => listSet("services", i, { name: e.target.value })}
-                            />
-                            <input
-                              className="bf-in bf-price"
-                              value={s.price || ""}
-                              placeholder="מחיר"
-                              aria-label="מחיר (לא חובה)"
-                              enterKeyHint="next"
-                              onChange={(e) => listSet("services", i, { price: e.target.value })}
-                            />
-                          </div>
-                          <Area
-                            value={s.desc}
-                            rows={2}
-                            placeholder="מה זה כולל, למי זה מתאים"
-                            onChange={(v) => listSet("services", i, { desc: v })}
-                            mic={canSpeak}
-                          />
-                          {a.services.length > 1 && (
-                            <Del label="הסרת השירות" onClick={() => listDel("services", i)} />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {a.services.length < 30 && (
-                      <button
-                        className="bf-add"
-                        onClick={() =>
-                          set("services", [...a.services, { name: "", desc: "", price: "" }])
-                        }
-                      >
-                        הוספת שירות
-                      </button>
-                    )}
-                    <p className="bf-small" style={{ margin: "-12px 0 22px" }}>
-                      מחיר לא חובה. אפשר גם "החל מ-" או "לפי הצעת מחיר".
-                    </p>
-
-                    <Q
-                      label="שאלות שלקוחות שואלים אתכם הרבה"
-                      hint="נהפוך אותן לשאלות נפוצות באתר. אפשר בלי תשובה, נשלים יחד"
-                      optional
-                    >
-                      <div className="bf-group">
-                        {a.faq.map((f, i) => (
-                          <div className="bf-item" key={i}>
-                            <input
-                              className="bf-in"
-                              value={f.q}
-                              placeholder="למשל: כמה זמן לוקחת עבודה?"
-                              aria-label={`שאלה ${i + 1}`}
-                              enterKeyHint="next"
-                              onChange={(e) => listSet("faq", i, { q: e.target.value })}
-                            />
-                            {f.q.trim() && (
-                              <Area
-                                value={f.a}
-                                rows={1}
-                                placeholder="התשובה בקצרה"
-                                onChange={(v) => listSet("faq", i, { a: v })}
-                                mic={canSpeak}
-                              />
-                            )}
-                            {a.faq.length > 1 && (
-                              <Del label="הסרת השאלה" onClick={() => listDel("faq", i)} />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      {a.faq.length < 30 && (
-                        <button
-                          className="bf-add"
-                          onClick={() => set("faq", [...a.faq, { q: "", a: "" }])}
-                        >
-                          הוספת שאלה
-                        </button>
-                      )}
-                    </Q>
-                  </>
-                )}
-
-                {S.k === "look" && (
-                  <>
-                    <Q label="לוגו" optional>
-                      {logo ? (
-                        <div className="bf-logo">
-                          <div className="bf-logo-img">
-                            {logo.thumb ? <img src={logo.thumb} alt="הלוגו" /> : null}
-                          </div>
-                          <div className="bf-logo-side">
-                            <span className="bf-logo-name">{logo.name}</span>
-                            <FileState f={logo} onRetry={() => retry(logo)} />
-                            <label className="bf-link">
-                              החלפה
-                              <input
-                                type="file"
-                                hidden
-                                accept="image/*,.svg,.pdf,.ai,.eps"
-                                onChange={(e) => e.target.files?.[0] && addLogo(e.target.files[0])}
-                              />
-                            </label>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          <Drop
-                            accept="image/*,.svg,.pdf,.ai,.eps"
-                            onFiles={(f) => f[0] && addLogo(f[0])}
-                            title="העלאת לוגו"
-                            sub="PNG, SVG, JPG או PDF. עדיף הקובץ המקורי מהמעצב"
-                          />
-                          <DriveLink
-                            label="הלוגו בגוגל דרייב? הדביקו קישור"
-                            onImport={(u) => importDrive(u, "logo")}
-                          />
-                        </>
-                      )}
-                    </Q>
-
-                    <Q label="צבעים">
-                      <div className="bf-seg" role="radiogroup" aria-label="צבעים">
-                        {(
-                          [
-                            ["logo", "מהלוגו"],
-                            ["custom", "אבחר בעצמי"],
-                            ["you", "תבחרו אתם"],
-                          ] as const
-                        ).map(([v, l]) => (
-                          <button
-                            key={v}
-                            role="radio"
-                            aria-checked={a.colorMode === v}
-                            className={a.colorMode === v ? "on" : ""}
-                            onClick={() =>
-                              setA((x) => ({
-                                ...x,
-                                colorMode: v,
-                                colors:
-                                  v === "logo"
-                                    ? palette.length
-                                      ? palette
-                                      : x.colors
-                                    : v === "custom"
-                                      ? x.colors.length
-                                        ? x.colors
-                                        : palette
-                                      : x.colors,
-                              }))
-                            }
-                          >
-                            {l}
-                          </button>
-                        ))}
-                      </div>
-                      {a.colorMode === "logo" &&
-                        (palette.length ? (
-                          <>
-                            <div className="bf-sws">
-                              {palette.map((c) => {
-                                const on = a.colors.includes(c);
-                                return (
-                                  <button
-                                    key={c}
-                                    className="bf-sw"
-                                    aria-pressed={on}
-                                    onClick={() =>
-                                      set(
-                                        "colors",
-                                        on ? a.colors.filter((x) => x !== c) : [...a.colors, c],
-                                      )
-                                    }
-                                  >
-                                    <span className="bf-sw-c" style={{ background: c }} />
-                                    <span dir="ltr">{c}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <p className="bf-small">
-                              הצבעים שמצאנו בלוגו. לחיצה על צבע מוציאה אותו.
-                            </p>
-                          </>
-                        ) : (
-                          <p className="bf-small">
-                            {logo
-                              ? "לא הצלחנו לקרוא צבעים מהקובץ הזה. אפשר לבחור בעצמכם או להשאיר לנו."
-                              : "אחרי שתעלו לוגו, הצבעים שלו יופיעו כאן."}
-                          </p>
-                        ))}
-                      {a.colorMode === "custom" && (
-                        <div className="bf-sws">
-                          {a.colors.map((c, i) => (
-                            <div key={i} className="bf-sw">
-                              <label className="bf-sw-c" style={{ background: c }}>
-                                <input
-                                  type="color"
-                                  value={c}
-                                  aria-label={`צבע ${i + 1}`}
-                                  onChange={(e) =>
-                                    set(
-                                      "colors",
-                                      a.colors.map((x, j) => (j === i ? e.target.value : x)),
-                                    )
-                                  }
-                                />
-                              </label>
-                              <button
-                                className="bf-sw-x"
-                                onClick={() =>
-                                  set(
-                                    "colors",
-                                    a.colors.filter((_, j) => j !== i),
-                                  )
-                                }
-                              >
-                                הסרה
-                              </button>
-                            </div>
-                          ))}
-                          {a.colors.length < 6 && (
-                            <button
-                              className="bf-sw-add"
-                              aria-label="הוספת צבע"
-                              onClick={() => set("colors", [...a.colors, "#3a5bd9"])}
-                            >
-                              +
-                            </button>
-                          )}
-                        </div>
-                      )}
-                      {a.colorMode === "you" && (
-                        <p className="bf-small">נציע לכם צבעים שמתאימים לתחום ולסגנון.</p>
-                      )}
-                    </Q>
-
-                    <Q label="איזה סגנון מתאים לכם?" hint="עד 3">
-                      <div className="bf-styles">
-                        {STYLES.map((s) => {
-                          const on = a.styles.includes(s.v);
-                          return (
-                            <button
-                              key={s.v}
-                              className={`bf-style ${on ? "on" : ""}`}
-                              aria-pressed={on}
-                              onClick={() =>
-                                set(
-                                  "styles",
-                                  on
-                                    ? a.styles.filter((x) => x !== s.v)
-                                    : [...a.styles, s.v].slice(-3),
-                                )
-                              }
-                            >
-                              <span className="bf-style-sw" aria-hidden>
-                                {s.sw.map((c) => (
-                                  <i key={c} style={{ background: c }} />
-                                ))}
-                              </span>
-                              <span>
-                                <b>{s.v}</b>
-                                <small>{s.d}</small>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </Q>
-                    <Q label="איך האתר ידבר עם הלקוחות?">
-                      <div className="bf-styles">
-                        {TONES.map((t) => {
-                          const on = a.tone === t.v;
-                          return (
-                            <button
-                              key={t.v}
-                              className={`bf-style bf-tone ${on ? "on" : ""}`}
-                              aria-pressed={on}
-                              onClick={() => set("tone", on ? "" : t.v)}
-                            >
-                              <span>
-                                <b>{t.v}</b>
-                                <small>{t.d}</small>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </Q>
-                    <Q label="עוד משהו על המראה?" optional>
-                      <Text
-                        value={a.styleNote}
-                        onChange={(v) => set("styleNote", v)}
-                        placeholder="למשל: לא אוהב ורוד, רוצה שירגיש כמו בוטיק"
-                      />
-                    </Q>
-                  </>
-                )}
-
-                {S.k === "inspo" && (
-                  <>
-                    <Q label="אתרים שאהבתם" optional>
-                      <div className="bf-group">
-                        {a.sites.map((s, i) => (
-                          <div className="bf-item" key={i}>
-                            <input
-                              className="bf-in"
-                              dir="ltr"
-                              inputMode="url"
-                              enterKeyHint="next"
-                              autoCapitalize="none"
-                              value={s.url}
-                              placeholder="www.example.co.il"
-                              aria-label={`אתר ${i + 1}`}
-                              onChange={(e) => listSet("sites", i, { url: e.target.value })}
-                            />
-                            <input
-                              className="bf-in"
-                              value={s.note}
-                              enterKeyHint="next"
-                              placeholder="מה אהבתם בו?"
-                              onChange={(e) => listSet("sites", i, { note: e.target.value })}
-                            />
-                            {a.sites.length > 1 && (
-                              <Del label="הסרת האתר" onClick={() => listDel("sites", i)} />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                      {a.sites.length < 6 && (
-                        <button
-                          className="bf-add"
-                          onClick={() => set("sites", [...a.sites, { url: "", note: "" }])}
-                        >
-                          הוספת אתר
-                        </button>
-                      )}
-                    </Q>
-                    <Q label="מתחרים שכדאי שנכיר" optional hint="שם או אתר. נדאג שתיראו טוב יותר">
-                      <Text
-                        value={a.competitors}
-                        onChange={(v) => set("competitors", v)}
-                        placeholder="למשל: גינות הדר, www.example.co.il"
-                      />
-                    </Q>
-                    <Q label="משהו שאתם בטוח לא רוצים?" optional>
-                      <Text
-                        value={a.avoid}
-                        onChange={(v) => set("avoid", v)}
-                        placeholder="למשל: אתר עמוס, צבעים כהים"
-                      />
-                    </Q>
-                  </>
-                )}
-
-                {S.k === "photos" && (
-                  <>
-                    <Drop
-                      multiple
-                      accept="image/*"
-                      onFiles={(f) => addPhotos(f)}
-                      title="העלאת תמונות"
-                      sub="אפשר לבחור כמה בבת אחת. התמונות מוקטנות אוטומטית"
-                    />
-                    <FilesBtn onFiles={(f) => addPhotos(f)} />
-                    <DriveLink
-                      label="או הדביקו קישור לתיקייה בגוגל דרייב"
-                      onImport={(u) => importDrive(u, "image")}
-                    />
-                    <Thumbs list={photos} retry={retry} remove={removeFile} />
-                    <label className="bf-check-row">
-                      <input
-                        type="checkbox"
-                        checked={a.noPhotos}
-                        onChange={(e) => set("noPhotos", e.target.checked)}
-                      />
-                      <span>אין לי תמונות כרגע. תשתמשו בתמונות מקצועיות שמתאימות לתחום.</span>
-                    </label>
-                    <Q label="קישור לגוגל תמונות או לכל מקום אחר" optional>
-                      <Text
-                        value={a.photosLink}
-                        onChange={(v) => set("photosLink", v)}
-                        placeholder="https://"
-                        ltr
-                        inputMode="url"
-                      />
-                    </Q>
-                  </>
-                )}
-
-                {S.k === "reviews" && (
-                  <>
-                    <div className="bf-group">
-                      {a.testimonials.map((t, i) => (
-                        <div className="bf-item" key={i}>
-                          <Area
-                            value={t.text}
-                            rows={3}
-                            placeholder="מה הלקוח אמר עליכם"
-                            onChange={(v) => listSet("testimonials", i, { text: v })}
-                          />
-                          <input
-                            className="bf-in"
-                            value={t.name}
-                            enterKeyHint="next"
-                            placeholder="שם הלקוח, ואם רוצים גם תפקיד"
-                            onChange={(e) => listSet("testimonials", i, { name: e.target.value })}
-                          />
-                          {a.testimonials.length > 1 && (
-                            <Del label="הסרת ההמלצה" onClick={() => listDel("testimonials", i)} />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {a.testimonials.length < 30 && (
-                      <button
-                        className="bf-add"
-                        onClick={() =>
-                          set("testimonials", [...a.testimonials, { name: "", text: "" }])
-                        }
-                      >
-                        הוספת המלצה
-                      </button>
-                    )}
-                    <Q
-                      label="או צילומי מסך של המלצות"
-                      hint="מוואטסאפ, גוגל, פייסבוק או מייל. אנחנו נעתיק את הטקסט"
-                      optional
-                    >
-                      <Drop
-                        multiple
-                        accept="image/*"
-                        onFiles={(f) => addPhotos(f, "review")}
-                        title="העלאת צילומי מסך"
-                        sub="אפשר כמה בבת אחת"
-                      />
-                      <FilesBtn onFiles={(f) => addPhotos(f, "review")} />
-                      <Thumbs list={shots} retry={retry} remove={removeFile} />
-                    </Q>
-                    <Q label="קישור לביקורות שלכם בגוגל או בפייסבוק" optional>
-                      <Text
-                        value={a.reviewsLink}
-                        onChange={(v) => set("reviewsLink", v)}
-                        placeholder="https://"
-                        ltr
-                        inputMode="url"
-                      />
-                    </Q>
-                  </>
-                )}
-
-                {S.k === "contact" && (
-                  <>
-                    <div className="bf-two">
-                      <Q label="טלפון">
+                      </Fq>
+                      <Fq k="contactName" optional>
                         <Text
-                          value={a.phone}
-                          onChange={(v) => set("phone", v)}
-                          type="tel"
-                          ltr
-                          autoComplete="tel"
+                          value={a.contactName}
+                          onChange={(v) => set("contactName", v)}
+                          autoComplete="name"
                         />
-                      </Q>
-                      <Q label="מייל">
+                      </Fq>
+                      <Fq k="industry">
                         <Text
-                          value={a.email}
-                          onChange={(v) => set("email", v)}
-                          type="email"
-                          ltr
-                          autoComplete="email"
+                          value={a.industry}
+                          onChange={(v) => set("industry", v)}
+                          placeholder="למשל: גינון, קוסמטיקה, עריכת דין"
                         />
-                      </Q>
-                    </div>
-                    <label className="bf-check-row bf-check-tight">
-                      <input
-                        type="checkbox"
-                        checked={a.whatsappSame}
-                        onChange={(e) => set("whatsappSame", e.target.checked)}
-                      />
-                      <span>הוואטסאפ באותו מספר</span>
-                    </label>
-                    {!a.whatsappSame && (
-                      <Q label="וואטסאפ">
-                        <Text
-                          value={a.whatsapp}
-                          onChange={(v) => set("whatsapp", v)}
-                          type="tel"
-                          ltr
+                      </Fq>
+                      <Fq k="tagline">
+                        <Area
+                          value={a.tagline}
+                          onChange={(v) => set("tagline", v)}
+                          rows={1}
+                          placeholder="למשל: גינות מעוצבות לבתים פרטיים בשרון"
+                          mic={canSpeak}
                         />
-                      </Q>
-                    )}
-                    <Q label="כתובת" optional>
-                      <Text
-                        value={a.address}
-                        onChange={(v) => set("address", v)}
-                        autoComplete="street-address"
-                      />
-                    </Q>
-                    <Q label="שעות פעילות" optional>
-                      <Text
-                        value={a.hours}
-                        onChange={(v) => set("hours", v)}
-                        placeholder="א׳–ה׳ 9:00–18:00"
-                      />
-                    </Q>
-                    <Q label="רשתות חברתיות" hint="קישורים או שמות משתמש" optional>
-                      <Area
-                        value={a.social}
-                        onChange={(v) => set("social", v)}
-                        rows={2}
-                        placeholder={"אינסטגרם: @...\nפייסבוק: ..."}
-                      />
-                    </Q>
-                    <Q label="דומיין (כתובת האתר)">
-                      <div className="bf-seg" role="radiogroup" aria-label="דומיין">
-                        {(
-                          [
-                            ["have", "יש לי"],
-                            ["need", "אין לי עדיין"],
-                          ] as const
-                        ).map(([v, l]) => (
-                          <button
-                            key={v}
-                            role="radio"
-                            aria-checked={a.domainMode === v}
-                            className={a.domainMode === v ? "on" : ""}
-                            onClick={() => set("domainMode", a.domainMode === v ? "" : v)}
-                          >
-                            {l}
-                          </button>
-                        ))}
-                      </div>
-                      {a.domainMode === "have" && (
+                      </Fq>
+                      <Fq k="audience">
                         <Text
-                          value={a.domain}
-                          onChange={(v) => set("domain", v)}
+                          value={a.audience}
+                          onChange={(v) => set("audience", v)}
+                          placeholder="למשל: משפחות צעירות, עסקים קטנים"
+                        />
+                      </Fq>
+                      <Fq k="area">
+                        <Text
+                          value={a.area}
+                          onChange={(v) => set("area", v)}
+                          placeholder="למשל: השרון והמרכז, כל הארץ, אונליין"
+                        />
+                      </Fq>
+                    </>
+                  )}
+
+                  {S.k === "site" && (
+                    <>
+                      <Fq k="mainAction">
+                        <Chips
+                          options={F.options("mainAction")}
+                          value={a.mainAction ? [a.mainAction] : []}
+                          single
+                          onChange={(v) => set("mainAction", v[0] || "")}
+                        />
+                      </Fq>
+                      <Fq k="pages">
+                        <Chips
+                          options={F.options("pages")}
+                          value={a.pages}
+                          onChange={(v) => set("pages", v)}
+                        />
+                      </Fq>
+                      <Fq k="features" optional>
+                        <Chips
+                          options={F.options("features")}
+                          value={a.features}
+                          onChange={(v) => set("features", v)}
+                        />
+                      </Fq>
+                      <Fq k="currentSite" optional>
+                        <Text
+                          value={a.currentSite}
+                          onChange={(v) => set("currentSite", v)}
                           placeholder="www.example.co.il"
                           ltr
                           inputMode="url"
                         />
+                      </Fq>
+                      {F.on("currentSite") && a.currentSite.trim() && (
+                        <Q label="מה לא עובד בו?" optional>
+                          <Text
+                            value={a.currentNote}
+                            onChange={(v) => set("currentNote", v)}
+                            placeholder="למשל: נראה מיושן, לא מביא פניות, קשה לעדכן"
+                          />
+                        </Q>
                       )}
-                      {a.domainMode === "need" && (
-                        <p className="bf-small">נעזור לבחור ולרכוש דומיין שמתאים לעסק.</p>
-                      )}
-                    </Q>
-                    <Q label="עוד משהו שחשוב שנדע?" optional>
-                      <Area
-                        value={a.notes}
-                        onChange={(v) => set("notes", v)}
-                        rows={2}
-                        placeholder="מבצעים, עונתיות, דברים שחשוב להדגיש"
-                        mic={canSpeak}
-                      />
-                    </Q>
-                  </>
-                )}
-              </div>
+                      <Fq k="deadline">
+                        <Chips
+                          options={F.options("deadline")}
+                          value={a.deadline ? [a.deadline] : []}
+                          single
+                          onChange={(v) => set("deadline", v[0] || "")}
+                        />
+                      </Fq>
+                    </>
+                  )}
 
-              {step === LAST && missing.length > 0 && (
-                <div className="bf-missing">
-                  <b>כדאי להשלים</b>
-                  <span>אפשר לשלוח גם בלי, אבל זה יעזור לנו לבנות אתר טוב יותר:</span>
-                  <div>
-                    {missing.map(([l, s]) => (
-                      <button key={l} onClick={() => go(s)}>
-                        {l}
-                      </button>
-                    ))}
-                  </div>
+                  {S.k === "story" && (
+                    <>
+                      <Fq k="about">
+                        <Area
+                          value={a.about}
+                          onChange={(v) => set("about", v)}
+                          rows={6}
+                          mic={canSpeak}
+                        />
+                      </Fq>
+                      <Fq k="years" optional>
+                        <Text
+                          value={a.years}
+                          onChange={(v) => set("years", v)}
+                          inputMode="numeric"
+                          placeholder="למשל: 12"
+                          short
+                        />
+                      </Fq>
+                      <Fq k="highlights">
+                        <Chips
+                          options={F.options("highlights")}
+                          value={a.highlights}
+                          onChange={(v) => set("highlights", v)}
+                        />
+                      </Fq>
+                      <Fq k="unique" optional>
+                        <Area
+                          value={a.unique}
+                          onChange={(v) => set("unique", v)}
+                          rows={2}
+                          placeholder="משהו שמתחרים לא יכולים להגיד על עצמם"
+                          mic={canSpeak}
+                        />
+                      </Fq>
+                      <Fq k="stats" optional>
+                        <Text
+                          value={a.stats}
+                          onChange={(v) => set("stats", v)}
+                          placeholder="למשל: 500 לקוחות, 1,200 גינות, דירוג 4.9 בגוגל"
+                        />
+                      </Fq>
+                    </>
+                  )}
+
+                  {S.k === "services" && (
+                    <>
+                      <Fq k="services">
+                        <div className="bf-group">
+                          {a.services.map((s, i) => (
+                            <div className="bf-item" key={i}>
+                              <div className="bf-row">
+                                <input
+                                  className="bf-in"
+                                  value={s.name}
+                                  placeholder="שם השירות"
+                                  aria-label={`שירות ${i + 1}`}
+                                  enterKeyHint="next"
+                                  onChange={(e) => listSet("services", i, { name: e.target.value })}
+                                />
+                                <input
+                                  className="bf-in bf-price"
+                                  value={s.price || ""}
+                                  placeholder="מחיר"
+                                  aria-label="מחיר (לא חובה)"
+                                  enterKeyHint="next"
+                                  onChange={(e) =>
+                                    listSet("services", i, { price: e.target.value })
+                                  }
+                                />
+                              </div>
+                              <Area
+                                value={s.desc}
+                                rows={2}
+                                placeholder="מה זה כולל, למי זה מתאים"
+                                onChange={(v) => listSet("services", i, { desc: v })}
+                                mic={canSpeak}
+                              />
+                              {a.services.length > 1 && (
+                                <Del label="הסרת השירות" onClick={() => listDel("services", i)} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {a.services.length < 30 && (
+                          <button
+                            className="bf-add"
+                            onClick={() =>
+                              set("services", [...a.services, { name: "", desc: "", price: "" }])
+                            }
+                          >
+                            הוספת שירות
+                          </button>
+                        )}
+                        <p className="bf-small" style={{ margin: "-12px 0 22px" }}>
+                          מחיר לא חובה. אפשר גם "החל מ-" או "לפי הצעת מחיר".
+                        </p>
+                      </Fq>
+
+                      <Fq k="faq" optional>
+                        <div className="bf-group">
+                          {a.faq.map((f, i) => (
+                            <div className="bf-item" key={i}>
+                              <input
+                                className="bf-in"
+                                value={f.q}
+                                placeholder="למשל: כמה זמן לוקחת עבודה?"
+                                aria-label={`שאלה ${i + 1}`}
+                                enterKeyHint="next"
+                                onChange={(e) => listSet("faq", i, { q: e.target.value })}
+                              />
+                              {f.q.trim() && (
+                                <Area
+                                  value={f.a}
+                                  rows={1}
+                                  placeholder="התשובה בקצרה"
+                                  onChange={(v) => listSet("faq", i, { a: v })}
+                                  mic={canSpeak}
+                                />
+                              )}
+                              {a.faq.length > 1 && (
+                                <Del label="הסרת השאלה" onClick={() => listDel("faq", i)} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {a.faq.length < 30 && (
+                          <button
+                            className="bf-add"
+                            onClick={() => set("faq", [...a.faq, { q: "", a: "" }])}
+                          >
+                            הוספת שאלה
+                          </button>
+                        )}
+                      </Fq>
+                    </>
+                  )}
+
+                  {S.k === "look" && (
+                    <>
+                      <Fq k="logo" optional>
+                        {logo ? (
+                          <div className="bf-logo">
+                            <div className="bf-logo-img">
+                              {logo.thumb ? <img src={logo.thumb} alt="הלוגו" /> : null}
+                            </div>
+                            <div className="bf-logo-side">
+                              <span className="bf-logo-name">{logo.name}</span>
+                              <FileState f={logo} onRetry={() => retry(logo)} />
+                              <label className="bf-link">
+                                החלפה
+                                <input
+                                  type="file"
+                                  hidden
+                                  accept="image/*,.svg,.pdf,.ai,.eps"
+                                  onChange={(e) =>
+                                    e.target.files?.[0] && addLogo(e.target.files[0])
+                                  }
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <Drop
+                              accept="image/*,.svg,.pdf,.ai,.eps"
+                              onFiles={(f) => f[0] && addLogo(f[0])}
+                              title="העלאת לוגו"
+                              sub="PNG, SVG, JPG או PDF. עדיף הקובץ המקורי מהמעצב"
+                            />
+                            <DriveLink
+                              label="הלוגו בגוגל דרייב? הדביקו קישור"
+                              onImport={(u) => importDrive(u, "logo")}
+                            />
+                          </>
+                        )}
+                      </Fq>
+
+                      <Fq k="colors">
+                        <div className="bf-seg" role="radiogroup" aria-label="צבעים">
+                          {(
+                            [
+                              ["logo", "מהלוגו"],
+                              ["custom", "אבחר בעצמי"],
+                              ["you", "תבחרו אתם"],
+                            ] as const
+                          ).map(([v, l]) => (
+                            <button
+                              key={v}
+                              role="radio"
+                              aria-checked={a.colorMode === v}
+                              className={a.colorMode === v ? "on" : ""}
+                              onClick={() =>
+                                setA((x) => ({
+                                  ...x,
+                                  colorMode: v,
+                                  colors:
+                                    v === "logo"
+                                      ? palette.length
+                                        ? palette
+                                        : x.colors
+                                      : v === "custom"
+                                        ? x.colors.length
+                                          ? x.colors
+                                          : palette
+                                        : x.colors,
+                                }))
+                              }
+                            >
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                        {a.colorMode === "logo" &&
+                          (palette.length ? (
+                            <>
+                              <div className="bf-sws">
+                                {palette.map((c) => {
+                                  const on = a.colors.includes(c);
+                                  return (
+                                    <button
+                                      key={c}
+                                      className="bf-sw"
+                                      aria-pressed={on}
+                                      onClick={() =>
+                                        set(
+                                          "colors",
+                                          on ? a.colors.filter((x) => x !== c) : [...a.colors, c],
+                                        )
+                                      }
+                                    >
+                                      <span className="bf-sw-c" style={{ background: c }} />
+                                      <span dir="ltr">{c}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                              <p className="bf-small">
+                                הצבעים שמצאנו בלוגו. לחיצה על צבע מוציאה אותו.
+                              </p>
+                            </>
+                          ) : (
+                            <p className="bf-small">
+                              {logo
+                                ? "לא הצלחנו לקרוא צבעים מהקובץ הזה. אפשר לבחור בעצמכם או להשאיר לנו."
+                                : "אחרי שתעלו לוגו, הצבעים שלו יופיעו כאן."}
+                            </p>
+                          ))}
+                        {a.colorMode === "custom" && (
+                          <div className="bf-sws">
+                            {a.colors.map((c, i) => (
+                              <div key={i} className="bf-sw">
+                                <label className="bf-sw-c" style={{ background: c }}>
+                                  <input
+                                    type="color"
+                                    value={c}
+                                    aria-label={`צבע ${i + 1}`}
+                                    onChange={(e) =>
+                                      set(
+                                        "colors",
+                                        a.colors.map((x, j) => (j === i ? e.target.value : x)),
+                                      )
+                                    }
+                                  />
+                                </label>
+                                <button
+                                  className="bf-sw-x"
+                                  onClick={() =>
+                                    set(
+                                      "colors",
+                                      a.colors.filter((_, j) => j !== i),
+                                    )
+                                  }
+                                >
+                                  הסרה
+                                </button>
+                              </div>
+                            ))}
+                            {a.colors.length < 6 && (
+                              <button
+                                className="bf-sw-add"
+                                aria-label="הוספת צבע"
+                                onClick={() => set("colors", [...a.colors, "#3a5bd9"])}
+                              >
+                                +
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {a.colorMode === "you" && (
+                          <p className="bf-small">נציע לכם צבעים שמתאימים לתחום ולסגנון.</p>
+                        )}
+                      </Fq>
+
+                      <Fq k="tone">
+                        <div className="bf-styles">
+                          {F.options("tone").map((v) => {
+                            const on = a.tone === v;
+                            const d = TONES.find((t) => t.v === v)?.d;
+                            return (
+                              <button
+                                key={v}
+                                className={`bf-style bf-tone ${on ? "on" : ""}`}
+                                aria-pressed={on}
+                                onClick={() => set("tone", on ? "" : v)}
+                              >
+                                <span>
+                                  <b>{v}</b>
+                                  {d && <small>{d}</small>}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </Fq>
+                      <Fq k="styleNote" optional>
+                        <Text
+                          value={a.styleNote}
+                          onChange={(v) => set("styleNote", v)}
+                          placeholder="למשל: לא אוהב ורוד, רוצה שירגיש כמו בוטיק"
+                        />
+                      </Fq>
+                    </>
+                  )}
+
+                  {S.k === "inspo" && (
+                    <>
+                      <Fq k="sites" optional>
+                        <div className="bf-group">
+                          {a.sites.map((s, i) => (
+                            <div className="bf-item" key={i}>
+                              <input
+                                className="bf-in"
+                                dir="ltr"
+                                inputMode="url"
+                                enterKeyHint="next"
+                                autoCapitalize="none"
+                                value={s.url}
+                                placeholder="www.example.co.il"
+                                aria-label={`אתר ${i + 1}`}
+                                onChange={(e) => listSet("sites", i, { url: e.target.value })}
+                              />
+                              <input
+                                className="bf-in"
+                                value={s.note}
+                                enterKeyHint="next"
+                                placeholder="מה אהבתם בו?"
+                                onChange={(e) => listSet("sites", i, { note: e.target.value })}
+                              />
+                              {a.sites.length > 1 && (
+                                <Del label="הסרת האתר" onClick={() => listDel("sites", i)} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {a.sites.length < 6 && (
+                          <button
+                            className="bf-add"
+                            onClick={() => set("sites", [...a.sites, { url: "", note: "" }])}
+                          >
+                            הוספת אתר
+                          </button>
+                        )}
+                      </Fq>
+                      <Fq k="competitors" optional>
+                        <Text
+                          value={a.competitors}
+                          onChange={(v) => set("competitors", v)}
+                          placeholder="למשל: גינות הדר, www.example.co.il"
+                        />
+                      </Fq>
+                      <Fq k="avoid" optional>
+                        <Text
+                          value={a.avoid}
+                          onChange={(v) => set("avoid", v)}
+                          placeholder="למשל: אתר עמוס, צבעים כהים"
+                        />
+                      </Fq>
+                    </>
+                  )}
+
+                  {S.k === "photos" && (
+                    <>
+                      <Fq k="photos" bare>
+                        <Drop
+                          multiple
+                          accept="image/*"
+                          onFiles={(f) => addPhotos(f)}
+                          title={F.label("photos")}
+                          sub="אפשר לבחור כמה בבת אחת. התמונות מוקטנות אוטומטית"
+                        />
+                        <FilesBtn onFiles={(f) => addPhotos(f)} />
+                        <DriveLink
+                          label="או הדביקו קישור לתיקייה בגוגל דרייב"
+                          onImport={(u) => importDrive(u, "image")}
+                        />
+                        <Thumbs list={photos} retry={retry} remove={removeFile} />
+                        <label className="bf-check-row">
+                          <input
+                            type="checkbox"
+                            checked={a.noPhotos}
+                            onChange={(e) => set("noPhotos", e.target.checked)}
+                          />
+                          <span>אין לי תמונות כרגע. תשתמשו בתמונות מקצועיות שמתאימות לתחום.</span>
+                        </label>
+                      </Fq>
+                      <Fq k="photosLink" optional>
+                        <Text
+                          value={a.photosLink}
+                          onChange={(v) => set("photosLink", v)}
+                          placeholder="https://"
+                          ltr
+                          inputMode="url"
+                        />
+                      </Fq>
+                    </>
+                  )}
+
+                  {S.k === "reviews" && (
+                    <>
+                      <Fq k="testimonials" bare>
+                        <div className="bf-group">
+                          {a.testimonials.map((t, i) => (
+                            <div className="bf-item" key={i}>
+                              <Area
+                                value={t.text}
+                                rows={3}
+                                placeholder="מה הלקוח אמר עליכם"
+                                onChange={(v) => listSet("testimonials", i, { text: v })}
+                              />
+                              <input
+                                className="bf-in"
+                                value={t.name}
+                                enterKeyHint="next"
+                                placeholder="שם הלקוח, ואם רוצים גם תפקיד"
+                                onChange={(e) =>
+                                  listSet("testimonials", i, { name: e.target.value })
+                                }
+                              />
+                              {a.testimonials.length > 1 && (
+                                <Del
+                                  label="הסרת ההמלצה"
+                                  onClick={() => listDel("testimonials", i)}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        {a.testimonials.length < 30 && (
+                          <button
+                            className="bf-add"
+                            onClick={() =>
+                              set("testimonials", [...a.testimonials, { name: "", text: "" }])
+                            }
+                          >
+                            הוספת המלצה
+                          </button>
+                        )}
+                      </Fq>
+                      <Fq k="reviewShots" optional>
+                        <Drop
+                          multiple
+                          accept="image/*"
+                          onFiles={(f) => addPhotos(f, "review")}
+                          title="העלאת צילומי מסך"
+                          sub="אפשר כמה בבת אחת"
+                        />
+                        <FilesBtn onFiles={(f) => addPhotos(f, "review")} />
+                        <Thumbs list={shots} retry={retry} remove={removeFile} />
+                      </Fq>
+                      <Fq k="reviewsLink" optional>
+                        <Text
+                          value={a.reviewsLink}
+                          onChange={(v) => set("reviewsLink", v)}
+                          placeholder="https://"
+                          ltr
+                          inputMode="url"
+                        />
+                      </Fq>
+                    </>
+                  )}
+
+                  {S.k === "contact" && (
+                    <>
+                      <div className="bf-two">
+                        <Fq k="phone">
+                          <Text
+                            value={a.phone}
+                            onChange={(v) => set("phone", v)}
+                            type="tel"
+                            ltr
+                            autoComplete="tel"
+                          />
+                        </Fq>
+                        <Fq k="email">
+                          <Text
+                            value={a.email}
+                            onChange={(v) => set("email", v)}
+                            type="email"
+                            ltr
+                            autoComplete="email"
+                          />
+                        </Fq>
+                      </div>
+                      {F.on("whatsapp") && (
+                        <>
+                          {F.on("phone") && (
+                            <label className="bf-check-row bf-check-tight">
+                              <input
+                                type="checkbox"
+                                checked={a.whatsappSame}
+                                onChange={(e) => set("whatsappSame", e.target.checked)}
+                              />
+                              <span>הוואטסאפ באותו מספר</span>
+                            </label>
+                          )}
+                          {(!a.whatsappSame || !F.on("phone")) && (
+                            <Fq k="whatsapp">
+                              <Text
+                                value={a.whatsapp}
+                                onChange={(v) => set("whatsapp", v)}
+                                type="tel"
+                                ltr
+                              />
+                            </Fq>
+                          )}
+                        </>
+                      )}
+                      <Fq k="address" optional>
+                        <Text
+                          value={a.address}
+                          onChange={(v) => set("address", v)}
+                          autoComplete="street-address"
+                        />
+                      </Fq>
+                      <Fq k="hours" optional>
+                        <Text
+                          value={a.hours}
+                          onChange={(v) => set("hours", v)}
+                          placeholder="א׳–ה׳ 9:00–18:00"
+                        />
+                      </Fq>
+                      <Fq k="social" optional>
+                        <Area
+                          value={a.social}
+                          onChange={(v) => set("social", v)}
+                          rows={2}
+                          placeholder={"אינסטגרם: @...\nפייסבוק: ..."}
+                        />
+                      </Fq>
+                      <Fq k="domain">
+                        <div className="bf-seg" role="radiogroup" aria-label="דומיין">
+                          {(
+                            [
+                              ["have", "יש לי"],
+                              ["need", "אין לי עדיין"],
+                            ] as const
+                          ).map(([v, l]) => (
+                            <button
+                              key={v}
+                              role="radio"
+                              aria-checked={a.domainMode === v}
+                              className={a.domainMode === v ? "on" : ""}
+                              onClick={() => set("domainMode", a.domainMode === v ? "" : v)}
+                            >
+                              {l}
+                            </button>
+                          ))}
+                        </div>
+                        {a.domainMode === "have" && (
+                          <Text
+                            value={a.domain}
+                            onChange={(v) => set("domain", v)}
+                            placeholder="www.example.co.il"
+                            ltr
+                            inputMode="url"
+                          />
+                        )}
+                        {a.domainMode === "need" && (
+                          <p className="bf-small">נעזור לבחור ולרכוש דומיין שמתאים לעסק.</p>
+                        )}
+                      </Fq>
+                      <Fq k="notes" optional>
+                        <Area
+                          value={a.notes}
+                          onChange={(v) => set("notes", v)}
+                          rows={2}
+                          placeholder="מבצעים, עונתיות, דברים שחשוב להדגיש"
+                          mic={canSpeak}
+                        />
+                      </Fq>
+                    </>
+                  )}
+
+                  {F.custom(S.k as StepKey).map((q) => (
+                    <CustomField
+                      key={q.id}
+                      q={q}
+                      value={a.custom.find((c) => c.id === q.id)?.value}
+                      onChange={(v) => setCustom(q, v)}
+                      mic={canSpeak}
+                    />
+                  ))}
                 </div>
-              )}
-            </>
-          )}
-        </div>
 
-        <nav className="bf-nav">
-          {step < LAST ? (
-            <button className="bf-btn" onClick={() => go(step + 1)}>
-              {step === 0 ? "התחלה" : "המשך"}
-            </button>
-          ) : (
-            <button className="bf-btn" disabled={sending || uploading > 0} onClick={submit}>
-              {uploading > 0 ? `מעלה ${uploading} קבצים…` : sending ? "שולח…" : "שליחת התשובות"}
-            </button>
-          )}
-          {step > 0 && (
-            <button className="bf-back" onClick={() => go(step - 1)}>
-              חזרה
-            </button>
-          )}
-        </nav>
-        {sendErr && <p className="bf-err">{sendErr}</p>}
-      </main>
-    </div>
+                {step === LAST && missing.length > 0 && (
+                  <div className="bf-missing">
+                    <b>כדאי להשלים</b>
+                    <span>אפשר לשלוח גם בלי, אבל זה יעזור לנו לבנות אתר טוב יותר:</span>
+                    <div>
+                      {missing.map(([l, s]) => (
+                        <button key={l} onClick={() => go(s)}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <nav className="bf-nav">
+            {step < LAST ? (
+              <button className="bf-btn" onClick={() => go(step + 1)}>
+                {step === 0 ? "התחלה" : "המשך"}
+              </button>
+            ) : (
+              <button className="bf-btn" disabled={sending || uploading > 0} onClick={submit}>
+                {uploading > 0 ? `מעלה ${uploading} קבצים…` : sending ? "שולח…" : "שליחת התשובות"}
+              </button>
+            )}
+            {step > 0 && (
+              <button className="bf-back" onClick={() => go(step - 1)}>
+                חזרה
+              </button>
+            )}
+          </nav>
+          {sendErr && <p className="bf-err">{sendErr}</p>}
+        </main>
+      </div>
+    </FormCtx.Provider>
   );
 }
 
@@ -1478,6 +1510,78 @@ function Q({
       </label>
       {children}
     </div>
+  );
+}
+
+/** a built-in question, as the owner worded it (or nothing, if they hid it) */
+function Fq({
+  k,
+  optional,
+  bare,
+  children,
+}: {
+  k: string;
+  optional?: boolean;
+  /** no title row — the upload box carries the wording */
+  bare?: boolean;
+  children: React.ReactNode;
+}) {
+  const F = React.useContext(FormCtx);
+  if (!F.on(k)) return null;
+  if (bare)
+    return (
+      <div className="bf-q">
+        {F.hint(k) && (
+          <p className="bf-small" style={{ margin: "0 0 10px" }}>
+            {F.hint(k)}
+          </p>
+        )}
+        {children}
+      </div>
+    );
+  return (
+    <Q label={F.label(k)} hint={F.hint(k)} optional={optional}>
+      {children}
+    </Q>
+  );
+}
+
+/** a question the owner added */
+function CustomField({
+  q,
+  value,
+  onChange,
+  mic,
+}: {
+  q: CustomQ;
+  value?: string | string[];
+  onChange: (v: string | string[]) => void;
+  mic?: boolean;
+}) {
+  const text = typeof value === "string" ? value : "";
+  const list = Array.isArray(value) ? value : [];
+  return (
+    <Q label={q.label} hint={q.hint}>
+      {q.type === "text" ? (
+        <Text value={text} onChange={onChange} />
+      ) : q.type === "long" ? (
+        <Area value={text} onChange={onChange} rows={3} mic={mic} />
+      ) : q.type === "yesno" ? (
+        <Chips
+          options={["כן", "לא"]}
+          value={text ? [text] : []}
+          single
+          onChange={(v) => onChange(v[0] || "")}
+        />
+      ) : (
+        <Chips
+          options={q.options || []}
+          value={q.type === "single" ? (text ? [text] : []) : list}
+          single={q.type === "single"}
+          onChange={(v) => onChange(q.type === "single" ? v[0] || "" : v)}
+        />
+      )}
+    </Q>
   );
 }
 

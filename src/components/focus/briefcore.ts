@@ -30,6 +30,7 @@ export const emptyAnswers = (): BriefAnswers => ({
   reviewsLink: "",
   whatsappSame: true,
   domainMode: "",
+  custom: [],
   colorMode: "logo",
   colors: [],
   styles: [],
@@ -72,6 +73,14 @@ export function cleanAnswers(raw: unknown): BriefAnswers {
   out.highlights = strs(r.highlights, 16);
   out.whatsappSame = r.whatsappSame === undefined ? true : !!r.whatsappSame;
   out.domainMode = r.domainMode === "have" || r.domainMode === "need" ? r.domainMode : "";
+  out.custom = (Array.isArray(r.custom) ? r.custom : [])
+    .filter((c: Record<string, unknown>) => c && typeof c.id === "string")
+    .slice(0, 60)
+    .map((c: Record<string, unknown>) => ({
+      id: str(c.id, 40),
+      label: str(c.label, 200),
+      value: Array.isArray(c.value) ? strs(c.value, 30, 200) : str(c.value, 4000),
+    }));
   out.faq = (Array.isArray(r.faq) ? r.faq : [])
     .slice(0, 30)
     .map((s: Record<string, unknown>) => ({ q: str(s?.q, 500), a: str(s?.a, 2000) }));
@@ -361,6 +370,16 @@ export function briefMarkdown(b: Pick<Brief, "client" | "business" | "answers" |
     "דומיין",
     a.domain.trim() || (a.domainMode === "need" ? "אין עדיין — צריך לעזור לבחור ולרכוש" : ""),
   );
+  const extra = (a.custom || []).filter((c) =>
+    Array.isArray(c.value) ? c.value.length : c.value.trim(),
+  );
+  if (extra.length) {
+    md += `\n## שאלות נוספות\n`;
+    for (const c of extra) {
+      const v = Array.isArray(c.value) ? c.value.join(", ") : c.value.trim();
+      md += v.includes("\n") ? `- **${c.label}:**\n${v}\n` : `- **${c.label}:** ${v}\n`;
+    }
+  }
   if (a.notes.trim()) md += `\n## הערות נוספות\n${a.notes.trim()}\n`;
   return md;
 }

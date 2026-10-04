@@ -268,3 +268,81 @@ test("drive download helpers: names and file types", () => {
   assert.equal(drive.sniffExt(new TextEncoder().encode("<!DOCTYPE html><html>")), "html");
   assert.equal(drive.sniffExt(new TextEncoder().encode('<svg xmlns="x"></svg>')), "svg");
 });
+
+/* ---------------- the editable questionnaire ---------------- */
+const bf = await import(`${F}/briefform.ts`);
+
+test("form: default shows every step and question, style question is gone", () => {
+  const R = bf.resolveForm();
+  assert.equal(R.steps.length, 9);
+  assert.ok(R.on("industry") && R.on("tone"));
+  assert.equal(R.on("styles"), false);
+  assert.equal(R.label("phone"), "טלפון");
+  assert.ok(R.options("pages").includes("דף הבית"));
+});
+
+test("form: hide, reword, change choices, add questions", () => {
+  const form = bf.cleanForm({
+    intro: "  נעים להכיר  ",
+    steps: { inspo: { off: true }, biz: { title: "על העסק", hint: "" }, bogus: { off: true } },
+    fields: {
+      business: { off: true, label: "איך קוראים לעסק?" }, // locked: can't hide
+      area: { off: true },
+      pages: { options: ["בית", "צור קשר", 7] },
+      tone: { hint: "בחרו אחד" },
+      nope: { off: true },
+    },
+    custom: [
+      { id: "q1", step: "biz", type: "multi", label: "באילו ימים?", options: ["א", "ב"] },
+      { id: "q2", step: "inspo", type: "text", label: "בשלב מוסתר" },
+      { id: "q3", step: "site", type: "text", label: "" },
+      { id: "bad id!", step: "biz", type: "text", label: "x" },
+      { id: "q4", step: "biz", type: "weird", label: "x" },
+    ],
+  });
+  assert.deepEqual(Object.keys(form.steps), ["biz", "inspo"]);
+  assert.equal(form.fields.business.off, undefined);
+  assert.equal(form.fields.nope, undefined);
+  assert.deepEqual(form.fields.pages.options, ["בית", "צור קשר"]);
+  assert.deepEqual(
+    form.custom.map((q) => q.id),
+    ["q1", "q2", "q3"],
+  );
+  const R = bf.resolveForm(form);
+  assert.equal(R.intro, "נעים להכיר");
+  assert.equal(R.steps.length, 8);
+  assert.equal(R.steps[0].t, "על העסק");
+  assert.equal(R.steps[0].h, bf.STEP_DEFS[0].h); // empty hint → the original
+  assert.ok(R.on("business"));
+  assert.equal(R.label("business"), "איך קוראים לעסק?");
+  assert.equal(R.on("area"), false);
+  assert.equal(R.on("sites"), false); // its step is hidden
+  assert.deepEqual(R.options("pages"), ["בית", "צור קשר"]);
+  assert.deepEqual(
+    R.custom("biz").map((q) => q.label),
+    ["באילו ימים?"],
+  );
+  assert.deepEqual(R.custom("inspo"), []); // hidden step
+  assert.deepEqual(R.custom("site"), []); // no wording yet
+  assert.ok(bf.isCustomized(form));
+  assert.equal(bf.isCustomized({}), false);
+  assert.equal(bf.isCustomized({ fields: { area: {} } }), false);
+});
+
+test("answers to my own questions are kept and land in the summary", () => {
+  const a = cleanAnswers({
+    business: "x",
+    custom: [
+      { id: "q1", label: "באילו ימים?", value: ["א", "ב"] },
+      { id: "q2", label: "יש מבצע?", value: "כן" },
+      { id: "q3", label: "ריק", value: "" },
+      { label: "no id" },
+    ],
+  });
+  assert.equal(a.custom.length, 3);
+  const p = briefPrompt({ client: "", business: "", answers: a, files: [] });
+  assert.ok(p.includes("## שאלות נוספות"));
+  assert.ok(p.includes("**באילו ימים?:** א, ב"));
+  assert.ok(p.includes("**יש מבצע?:** כן"));
+  assert.ok(!p.includes("ריק"));
+});

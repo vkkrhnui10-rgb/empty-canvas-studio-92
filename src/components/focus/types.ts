@@ -1,3 +1,4 @@
+import type { BriefForm } from "./briefform";
 export type TaskStatus =
   "inbox" | "todo" | "today" | "doing" | "waiting" | "blocked" | "deferred" | "done" | "cancelled";
 export type Priority = "low" | "normal" | "high" | "urgent";
@@ -266,6 +267,12 @@ export interface BriefService {
   /** free text: "250 ₪", "החל מ-1,500", "לפי הצעת מחיר" */
   price?: string;
 }
+/** an answer to a question the owner added (keeps its label, so it reads well after edits) */
+export interface BriefCustomAnswer {
+  id: string;
+  label: string;
+  value: string | string[];
+}
 export interface BriefFaq {
   q: string;
   a: string;
@@ -315,6 +322,7 @@ export interface BriefAnswers {
   reviewsLink: string;
   whatsappSame: boolean;
   domainMode: "" | "have" | "need";
+  custom: BriefCustomAnswer[];
   colorMode: "logo" | "custom" | "you";
   colors: string[];
   styles: string[];
@@ -356,6 +364,8 @@ export interface DB {
   cpanels: Cpanel[];
   leads: Lead[];
   briefs: Brief[];
+  /** my edits to the questionnaire (hidden questions, wording, added questions) */
+  briefForm?: BriefForm;
   growLog: GrowEntry[];
   soContacts: SOContact[];
   plan: { date: string; ids: string[]; closed: boolean };

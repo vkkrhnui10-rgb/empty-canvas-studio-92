@@ -251,3 +251,70 @@ test("hosting: follows Grow — month's net minus the operational fee, paid on t
     false,
   );
 });
+
+/* ---------- monthly hosting report ---------- */
+const { buildHostReport, reportMonths, reportText } = await import(`${F}/hostreport.ts`);
+const run = (id: string, date: string, sum: number, o: any = {}) => ({
+  id,
+  date,
+  ok: true,
+  sum,
+  note: "",
+  ...o,
+});
+
+test("hostreport: paid / failed / missing and the payout", () => {
+  const db = mkdb({
+    settings: { hourlyTarget: 150, growPayoutDay: 10, growMonthlyFee: 20 },
+    projects: [
+      proj("a", { hosted: true, soRuns: [run("a1", "2026-09-03", 49, { net: 47 })] }),
+      proj("b", { hosted: true, soState: "failed", soRuns: [run("b1", "2026-09-04", 49, { ok: false, note: "כרטיס נדחה" })] }),
+      proj("c", { hosted: true, soRuns: [run("c0", "2026-08-05", 49, { net: 47 })] }),
+      proj("d", { hosted: true, soState: "cancelled", soRuns: [] }),
+    ],
+  });
+  const r = buildHostReport(db, "2026-09", "2026-10-05");
+  const by = Object.fromEntries(r.rows.map((x: any) => [x.projectId, x]));
+  assert.equal(by.a.state, "paid");
+  assert.equal(by.b.state, "failed");
+  assert.equal(by.b.note, "כרטיס נדחה");
+  assert.equal(by.c.state, "missing");
+  assert.equal(by.d, undefined);
+  assert.equal(r.gross, 49);
+  assert.equal(r.payout, 27); // 47 net − 20 fee
+  assert.equal(r.payoutDate, "2026-10-10");
+  assert.equal(r.open, false);
+});
+
+test("hostreport: the reasons add up exactly to the difference from last month", () => {
+  const db = mkdb({
+    settings: { hourlyTarget: 150, growPayoutDay: 10, growMonthlyFee: 20 },
+    projects: [
+      proj("a", { hosted: true, soRuns: [run("a1", "2026-08-03", 49, { net: 47 }), run("a2", "2026-09-03", 49, { net: 47 })] }),
+      proj("b", { hosted: true, soState: "failed", soRuns: [run("b1", "2026-08-04", 49, { net: 47 }), run("b2", "2026-09-04", 49, { ok: false, note: "x" })] }),
+      proj("c", { hosted: true, soRuns: [run("c1", "2026-09-06", 100, { net: 96 })] }),
+      proj("e", { hosted: true, soRuns: [run("e1", "2026-08-07", 60, { net: 58 }), run("e2", "2026-09-07", 90, { net: 87 })] }),
+    ],
+  });
+  const r = buildHostReport(db, "2026-09", "2026-10-05");
+  const kinds = r.reasons.map((x: any) => x.kind).sort();
+  assert.ok(kinds.includes("new") && kinds.includes("failed") && kinds.includes("price"));
+  const sum = r.reasons.reduce((s: number, x: any) => s + x.delta, 0);
+  assert.ok(Math.abs(sum - r.diff) < 0.011, `${sum} vs ${r.diff}`);
+  assert.equal(r.prevGross, 158);
+  assert.ok(reportText(r).includes("מה השתנה"));
+});
+
+test("hostreport: current month is open, later-charged clients are pending, no net means a flag", () => {
+  const db = mkdb({
+    projects: [
+      proj("a", { hosted: true, soRuns: [run("a0", "2026-09-20", 49)] }),
+    ],
+  });
+  const r = buildHostReport(db, "2026-10", "2026-10-05");
+  assert.equal(r.open, true);
+  assert.equal(r.rows[0].state, "pending");
+  const prev = buildHostReport(db, "2026-09", "2026-10-05");
+  assert.equal(prev.netGuess, true);
+  assert.deepEqual(reportMonths(db, "2026-10-05"), ["2026-10", "2026-09"]);
+});

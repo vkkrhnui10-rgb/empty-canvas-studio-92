@@ -46,14 +46,15 @@ import { useNav } from "./nav";
 import { SoWhatsAppBtn } from "./billing";
 import { GrowTab, SoContactsTab } from "./growui";
 import { IncomeTab } from "./income";
+import { HostReportTab } from "./hostreportui";
 
 /* ============================ Finances ============================ */
 export function FinancesView() {
   const db = useDB();
   const nav = useNav();
-  const [tab, setTab] = React.useState<"income" | "collect" | "hosting" | "grow" | "contacts">(
-    "income",
-  );
+  const [tab, setTab] = React.useState<
+    "income" | "collect" | "hosting" | "report" | "grow" | "contacts"
+  >("income");
   const growOpen = db.growLog.filter((g) => !g.projectId && g.kind !== "invoice").length;
   const P = db.projects;
   const totBuild = P.reduce((s, p) => s + (p.buildPrice || 0), 0);
@@ -133,6 +134,7 @@ export function FinancesView() {
             { value: "income", label: "הכנסות" },
             { value: "collect", label: `גבייה (${debtors.length})` },
             { value: "hosting", label: `אחסון והוראות קבע (${hostList.length})` },
+            { value: "report", label: "דוח חודשי" },
             { value: "contacts", label: `הוראות קבע · אנשי קשר (${db.soContacts.length})` },
             { value: "grow", label: growOpen ? `Grow · ${growOpen} לשיוך` : "Grow" },
           ]}
@@ -140,6 +142,8 @@ export function FinancesView() {
       </div>
       {tab === "income" ? (
         <IncomeTab />
+      ) : tab === "report" ? (
+        <HostReportTab />
       ) : tab === "contacts" ? (
         <SoContactsTab />
       ) : tab === "grow" ? (

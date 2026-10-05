@@ -30,6 +30,8 @@ export interface Task {
   waitingSince?: number;
   deferCount?: number;
   repeat: Repeat;
+  /** a fix that came from a client's design review */
+  reviewRef?: { r: string; c: string };
 }
 
 export type SiteType = "אתר AI" | "אתר WordPress" | "משולב" | "אחר";
@@ -357,6 +359,68 @@ export interface Brief {
   files?: BriefFile[];
 }
 
+/** where a client's note points to, as reported by feedback.js inside the live site */
+export interface ReviewAnchor {
+  /** CSS path to the element */
+  sel: string;
+  /** element tag (lowercase) */
+  tag: string;
+  /** the element's own text, trimmed */
+  text: string;
+  /** nearest section / heading the element sits in */
+  section: string;
+  /** where inside the element the click was (0..1) */
+  ox: number;
+  oy: number;
+  /** position on the page when clicked, as a fallback (px in page coordinates) */
+  px: number;
+  py: number;
+  /** page height and viewport width at the time */
+  ph: number;
+  vw: number;
+}
+
+export interface ReviewComment {
+  id: string;
+  round: number;
+  view: "desktop" | "mobile";
+  /** page path on the site, e.g. "/about" */
+  path: string;
+  text: string;
+  author: string;
+  at: number;
+  /** live = pinned to an element through feedback.js; overlay = over the live site without it; shot = on a full-page screenshot */
+  mode: "live" | "overlay" | "shot";
+  anchor?: ReviewAnchor;
+  /** overlay / shot: position in percent (overlay: of the visible screen, shot: of the whole page) */
+  pos?: { x: number; y: number };
+  /** storage path of what the client saw when commenting */
+  shot?: string;
+  done?: boolean;
+  /** owner side: the task made from this note */
+  taskId?: string;
+}
+
+/** a design review link for one site */
+export interface Review {
+  /** long random id — also the secret in the client's link */
+  id: string;
+  projectId: string;
+  projectName: string;
+  url: string;
+  created: number;
+  round: number;
+  /** owner's copy of the client's notes (pulled from the server) */
+  comments: ReviewComment[];
+  approved?: { name: string; at: number; round: number };
+  /** what "fixed" state the server already knows, per note */
+  marks?: Record<string, boolean>;
+  pulledAt?: number;
+  /** the client said "I'm done" for this round */
+  sentAt?: number;
+  seenAt?: number;
+}
+
 export interface DB {
   version: number;
   tasks: Task[];
@@ -364,6 +428,7 @@ export interface DB {
   cpanels: Cpanel[];
   leads: Lead[];
   briefs: Brief[];
+  reviews: Review[];
   /** my edits to the questionnaire (hidden questions, wording, added questions) */
   briefForm?: BriefForm;
   growLog: GrowEntry[];

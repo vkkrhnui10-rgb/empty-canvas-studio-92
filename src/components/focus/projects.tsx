@@ -90,6 +90,8 @@ const siteColor = (s: string) =>
 const soColor = (s: SOState) =>
   s === "ok" ? C.ok : s === "failed" ? C.bad : s === "cancelled" ? C.sub : C.warn;
 
+const ReviewTab = React.lazy(() => import("./reviewpanel").then((m) => ({ default: m.ReviewTab })));
+
 /** "active" in the projects list = everything except frozen — launched and maintenance sites are live clients */
 const FROZEN = ["הוקפא"];
 
@@ -802,6 +804,15 @@ export function ProjectPage({ id }: { id: string }) {
               "issues",
               `תקלות${p.issues.filter((i) => !i.resolvedAt).length ? ` (${p.issues.filter((i) => !i.resolvedAt).length})` : ""}`,
             ],
+            [
+              "review",
+              `משוב עיצוב${(() => {
+                const n = db.reviews
+                  .filter((r) => r.projectId === p.id)
+                  .reduce((s, r) => s + r.comments.filter((c) => c.round === r.round).length, 0);
+                return n ? ` (${n})` : "";
+              })()}`,
+            ],
             ["links", "קישורים"],
             ["notes", "הערות"],
             ["activity", "פעילות"],
@@ -932,6 +943,11 @@ export function ProjectPage({ id }: { id: string }) {
           <IssuesTab p={p} />
         </TabsContent>
 
+        <TabsContent value="review">
+          <React.Suspense fallback={null}>
+            <ReviewTab p={p} />
+          </React.Suspense>
+        </TabsContent>
         <TabsContent value="links">
           <Card className="grid gap-3 p-5 sm:grid-cols-2">
             <LinkField label="כתובת האתר" value={p.url} onChange={(v) => patch({ url: v })} />

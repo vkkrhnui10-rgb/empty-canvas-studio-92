@@ -11,10 +11,12 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiBriefRouteImport } from './routes/api/brief'
+import { Route as ApiReviewRouteImport } from './routes/api/review'
 import { Route as ApiSiteCheckRouteImport } from './routes/api/site-check'
 import { Route as ApiSiteMonitorRouteImport } from './routes/api/site-monitor'
 import { Route as ApiSiteShotRouteImport } from './routes/api/site-shot'
 import { Route as BIdRouteImport } from './routes/b.$id'
+import { Route as RIdRouteImport } from './routes/r.$id'
 import { Route as ApiGrowWebhookRouteImport } from './routes/api/grow/webhook'
 
 const IndexRoute = IndexRouteImport.update({
@@ -25,6 +27,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiBriefRoute = ApiBriefRouteImport.update({
   id: '/api/brief',
   path: '/api/brief',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewRoute = ApiReviewRouteImport.update({
+  id: '/api/review',
+  path: '/api/review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiSiteCheckRoute = ApiSiteCheckRouteImport.update({
@@ -47,6 +54,11 @@ const BIdRoute = BIdRouteImport.update({
   path: '/b/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RIdRoute = RIdRouteImport.update({
+  id: '/r/$id',
+  path: '/r/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGrowWebhookRoute = ApiGrowWebhookRouteImport.update({
   id: '/api/grow/webhook',
   path: '/api/grow/webhook',
@@ -56,29 +68,35 @@ const ApiGrowWebhookRoute = ApiGrowWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/brief': typeof ApiBriefRoute
+  '/api/review': typeof ApiReviewRoute
   '/api/site-check': typeof ApiSiteCheckRoute
   '/api/site-monitor': typeof ApiSiteMonitorRoute
   '/api/site-shot': typeof ApiSiteShotRoute
   '/b/$id': typeof BIdRoute
+  '/r/$id': typeof RIdRoute
   '/api/grow/webhook': typeof ApiGrowWebhookRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/brief': typeof ApiBriefRoute
+  '/api/review': typeof ApiReviewRoute
   '/api/site-check': typeof ApiSiteCheckRoute
   '/api/site-monitor': typeof ApiSiteMonitorRoute
   '/api/site-shot': typeof ApiSiteShotRoute
   '/b/$id': typeof BIdRoute
+  '/r/$id': typeof RIdRoute
   '/api/grow/webhook': typeof ApiGrowWebhookRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/brief': typeof ApiBriefRoute
+  '/api/review': typeof ApiReviewRoute
   '/api/site-check': typeof ApiSiteCheckRoute
   '/api/site-monitor': typeof ApiSiteMonitorRoute
   '/api/site-shot': typeof ApiSiteShotRoute
   '/b/$id': typeof BIdRoute
+  '/r/$id': typeof RIdRoute
   '/api/grow/webhook': typeof ApiGrowWebhookRoute
 }
 export interface FileRouteTypes {
@@ -86,38 +104,46 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/brief'
+    | '/api/review'
     | '/api/site-check'
     | '/api/site-monitor'
     | '/api/site-shot'
     | '/b/$id'
+    | '/r/$id'
     | '/api/grow/webhook'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/api/brief'
+    | '/api/review'
     | '/api/site-check'
     | '/api/site-monitor'
     | '/api/site-shot'
     | '/b/$id'
+    | '/r/$id'
     | '/api/grow/webhook'
   id:
     | '__root__'
     | '/'
     | '/api/brief'
+    | '/api/review'
     | '/api/site-check'
     | '/api/site-monitor'
     | '/api/site-shot'
     | '/b/$id'
+    | '/r/$id'
     | '/api/grow/webhook'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiBriefRoute: typeof ApiBriefRoute
+  ApiReviewRoute: typeof ApiReviewRoute
   ApiSiteCheckRoute: typeof ApiSiteCheckRoute
   ApiSiteMonitorRoute: typeof ApiSiteMonitorRoute
   ApiSiteShotRoute: typeof ApiSiteShotRoute
   BIdRoute: typeof BIdRoute
+  RIdRoute: typeof RIdRoute
   ApiGrowWebhookRoute: typeof ApiGrowWebhookRoute
 }
 
@@ -135,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/api/brief'
       fullPath: '/api/brief'
       preLoaderRoute: typeof ApiBriefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review': {
+      id: '/api/review'
+      path: '/api/review'
+      fullPath: '/api/review'
+      preLoaderRoute: typeof ApiReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/site-check': {
@@ -165,6 +198,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/r/$id': {
+      id: '/r/$id'
+      path: '/r/$id'
+      fullPath: '/r/$id'
+      preLoaderRoute: typeof RIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/grow/webhook': {
       id: '/api/grow/webhook'
       path: '/api/grow/webhook'
@@ -178,10 +218,12 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiBriefRoute: ApiBriefRoute,
+  ApiReviewRoute: ApiReviewRoute,
   ApiSiteCheckRoute: ApiSiteCheckRoute,
   ApiSiteMonitorRoute: ApiSiteMonitorRoute,
   ApiSiteShotRoute: ApiSiteShotRoute,
   BIdRoute: BIdRoute,
+  RIdRoute: RIdRoute,
   ApiGrowWebhookRoute: ApiGrowWebhookRoute,
 }
 export const routeTree = rootRouteImport

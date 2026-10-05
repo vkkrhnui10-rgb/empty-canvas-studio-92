@@ -4,9 +4,12 @@ import type { OrderRow, ReportRow } from "./growreport";
 import { nameKey, samePerson } from "./growreport";
 import { briefId, cleanAnswers } from "./briefcore";
 import type { BriefForm } from "./briefform";
+import { newReviewId, VIEW_HE, whereText } from "./reviewcore";
 import type {
   Alert,
   Brief,
+  Review,
+  ReviewComment,
   Cpanel,
   DB,
   GrowEntry,
@@ -89,6 +92,7 @@ const emptyDB = (): DB => ({
   cpanels: [],
   leads: [],
   briefs: [],
+  reviews: [],
   growLog: [],
   soContacts: [],
   plan: { date: todayStr(), ids: [], closed: false },
@@ -242,6 +246,7 @@ function migrate(raw: any): DB {
     sessions: (raw.sessions || []).map((s: { projectId?: string }) => ({ projectId: "", ...s })),
     activity: raw.activity || [],
     briefs: Array.isArray(raw.briefs) ? raw.briefs : [],
+    reviews: Array.isArray(raw.reviews) ? raw.reviews : [],
     briefForm: raw.briefForm && typeof raw.briefForm === "object" ? raw.briefForm : undefined,
     growLog: raw.growLog || [],
     soContacts: Array.isArray(raw.soContacts) ? raw.soContacts : [],
@@ -1494,6 +1499,116 @@ export const actions = {
         d.briefs = d.briefs.filter((b) => b.id !== id);
       }),
     );
+  },
+  /* ---------------- design reviews ---------------- */
+  createReview(projectId: string, url: string): Review {
+    const p = state.projects.find((x) => x.id === projectId);
+    const r: Review = {
+      id: newReviewId(),
+      projectId,
+      projectName: p?.name || "",
+      url: url.trim(),
+      created: Date.now(),
+      round: 1,
+      comments: [],
+      marks: {},
+    };
+    update((d) => {
+      d.reviews.unshift(r);
+      log(d, projectId, "נוצר קישור למשוב על העיצוב");
+    });
+    return r;
+  },
+  patchReview(id: string, patch: Partial<Review>) {
+    update((d) => {
+      const r = d.reviews.find((x) => x.id === id);
+      if (r) Object.assign(r, patch);
+    });
+  },
+  deleteReview(id: string) {
+    undoable("קישור המשוב נמחק", () =>
+      update((d) => {
+        d.reviews = d.reviews.filter((r) => r.id !== id);
+      }),
+    );
+  },
+  /**
+   * the server's copy of a review arrived: keep the notes, and every new note becomes a task
+   * in the project. Returns how many notes were new.
+   */
+  mergeReview(
+    id: string,
+    st: {
+      round: number;
+      approved?: Review["approved"] | null;
+      sentAt?: number | null;
+      comments: ReviewComment[];
+    },
+    link = "",
+  ): number {
+    let added = 0;
+    update((d) => {
+      const r = d.reviews.find((x) => x.id === id);
+      if (!r) return;
+      const mine = new Map(r.comments.map((c) => [c.id, c]));
+      const next: ReviewComment[] = [];
+      for (const c0 of st.comments) {
+        const { shotUrl: _u, ...c } = c0 as ReviewComment & { shotUrl?: string };
+        const old = mine.get(c.id);
+        let taskId = old?.taskId;
+        if (!old) {
+          added++;
+          const t = newTask({
+            title: `תיקון עיצוב: ${c.text.replace(/\s+/g, " ").slice(0, 70)}${c.text.length > 70 ? "…" : ""}`,
+            desc: `${VIEW_HE[c.view]} · עמוד ${c.path}\nאיפה: ${whereText(c)}\n${c.author ? `מאת: ${c.author}\n` : ""}\n${c.text}`,
+            projectId: r.projectId,
+            status: c.done ? "done" : "todo",
+            type: "תיקון",
+            estMin: 15,
+            links: link ? [link] : [],
+            reviewRef: { r: r.id, c: c.id },
+          });
+          if (c.done) t.completedAt = Date.now();
+          d.tasks.unshift(t);
+          taskId = t.id;
+        } else if (old.text !== c.text) {
+          // the client edited the note: keep the task in step
+          const t = d.tasks.find((x) => x.id === old.taskId);
+          if (t && t.status !== "done") {
+            t.title = `תיקון עיצוב: ${c.text.replace(/\s+/g, " ").slice(0, 70)}${c.text.length > 70 ? "…" : ""}`;
+            t.desc = `${VIEW_HE[c.view]} · עמוד ${c.path}\nאיפה: ${whereText(c)}\n${c.author ? `מאת: ${c.author}\n` : ""}\n${c.text}`;
+          }
+        }
+        next.push({ ...c, taskId, done: old ? old.done : c.done });
+      }
+      // notes the client deleted: drop their open tasks
+      for (const old of r.comments)
+        if (!st.comments.some((c) => c.id === old.id) && old.taskId) {
+          const t = d.tasks.find((x) => x.id === old.taskId);
+          if (t && t.status !== "done") d.tasks = d.tasks.filter((x) => x.id !== t.id);
+        }
+      r.comments = next;
+      r.round = Math.max(1, st.round || r.round);
+      r.approved = st.approved || undefined;
+      r.sentAt = st.sentAt || undefined;
+      r.pulledAt = Date.now();
+      if (added) log(d, r.projectId, `התקבלו ${added} הערות משוב על העיצוב`);
+    });
+    return added;
+  },
+  /** mark a note fixed / not fixed — through its task when it has one */
+  setReviewNoteDone(rid: string, cid: string, done: boolean) {
+    update((d) => {
+      const r = d.reviews.find((x) => x.id === rid);
+      const c = r?.comments.find((x) => x.id === cid);
+      if (!r || !c) return;
+      c.done = done;
+      const t = c.taskId ? d.tasks.find((x) => x.id === c.taskId) : undefined;
+      if (t) {
+        t.status = done ? "done" : "todo";
+        t.completedAt = done ? Date.now() : undefined;
+      }
+    });
   },
   /** the client finished the questionnaire (arrives through the cloud inbox) */
   applyBrief(pl: Record<string, unknown>): Brief | undefined {

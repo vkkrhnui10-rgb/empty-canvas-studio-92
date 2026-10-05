@@ -72,6 +72,7 @@ import { QuickAddDialog, TaskDrawer } from "./tasks";
 import { InlineFloating, useFloating } from "./floating";
 import { LoginScreen, RecoveryDialog, SyncBadge } from "./auth";
 import { startCloud, useCloud } from "./cloud";
+import { useReviewSync } from "./reviewsync";
 
 const NAV: { v: View; l: string; i: typeof LayoutDashboard; group?: string }[] = [
   { v: "dashboard", l: "ראשי", i: LayoutDashboard, group: "העבודה שלי" },
@@ -130,6 +131,7 @@ export default function FocusApp() {
   useSiteMonitor(live);
   useBackupReminder(live);
   useDailyBrief(live);
+  useReviewSync(live && !!cloud.session);
   const body =
     !hydrated || (cloud.enabled && !cloud.ready) ? (
       <Splash />

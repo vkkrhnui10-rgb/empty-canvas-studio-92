@@ -261,6 +261,29 @@ function applyBriefEvent(pl: Record<string, unknown>) {
   }
 }
 
+/** a client sent design notes / approved the design */
+function applyReviewEvent(pl: Record<string, unknown>) {
+  const id = String(pl.reviewId ?? "");
+  const r = getState().reviews.find((x) => x.id === id);
+  if (!r) return;
+  const approved = pl.type === "approved";
+  const who = String(pl.name || "") || r.projectName;
+  void import("./reviewsync").then((m) => m.pullReview(id)).catch(() => undefined);
+  const msg = approved
+    ? `${who} אישר/ה את העיצוב של ${r.projectName}`
+    : `${who} שלח/ה ${Number(pl.count) || ""} הערות על ${r.projectName}`.replace("  ", " ");
+  toast.success(msg, {
+    duration: 12000,
+    action: { label: "פתח", onClick: () => (window.location.hash = `#/project/${r.projectId}`) },
+  });
+  try {
+    if (typeof Notification !== "undefined" && Notification.permission === "granted")
+      new Notification(approved ? "העיצוב אושר" : "הערות חדשות על העיצוב", { body: msg });
+  } catch {
+    /* ignore */
+  }
+}
+
 let draining = false;
 /** apply any Grow events that haven't been processed yet */
 export async function drainGrow() {
@@ -278,6 +301,7 @@ export async function drainGrow() {
     for (const ev of data) {
       if (ev.kind === "site_check") applySiteCheck(ev.payload as Record<string, unknown>);
       else if (ev.kind === "brief") applyBriefEvent(ev.payload as Record<string, unknown>);
+      else if (ev.kind === "review") applyReviewEvent(ev.payload as Record<string, unknown>);
       else actions.applyGrow(ev);
     }
     await supabase

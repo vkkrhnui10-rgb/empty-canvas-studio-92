@@ -24,7 +24,15 @@ import { makeZip } from "./briefcore";
 import { useCloud } from "./cloud";
 import { C } from "./constants";
 import { claudePrompt, scriptTag, sortNotes, VIEW_HE, whereText } from "./reviewcore";
-import { isFixed, newRound, pullReview, reviewLink, shotUrlOf, useShotUrls } from "./reviewsync";
+import {
+  authedReview,
+  isFixed,
+  newRound,
+  pullReview,
+  reviewLink,
+  shotUrlOf,
+  useShotUrls,
+} from "./reviewsync";
 import { actions, useDB } from "./store";
 import type { Project, Review, ReviewComment } from "./types";
 import { Badge, Btn, Card, EmptyState, Input } from "./ui";
@@ -129,6 +137,27 @@ function ReviewCard({ r, p }: { r: Review; p: Project }) {
     void pull(true);
   }, [pull]);
 
+  // is the line on the site, and can the site be shown inside the review page?
+  const [site, setSite] = React.useState<{
+    installed?: boolean;
+    blocks?: boolean;
+    why?: string;
+    error?: string;
+    busy?: boolean;
+  }>({});
+  const check = React.useCallback(async () => {
+    setSite((x) => ({ ...x, busy: true }));
+    try {
+      const j = await authedReview("check", { url: r.url });
+      setSite({ installed: !!j.installed, blocks: !!j.blocks, why: j.why || "" });
+    } catch (e) {
+      setSite({ error: (e as Error).message });
+    }
+  }, [r.url]);
+  React.useEffect(() => {
+    void check();
+  }, [check]);
+
   React.useEffect(() => {
     actions.patchReview(r.id, { seenAt: Date.now() });
   }, [r.id, r.comments.length]);
@@ -145,7 +174,7 @@ function ReviewCard({ r, p }: { r: Review; p: Project }) {
       return r.url;
     }
   })();
-  const usesLine = r.comments.some((c) => c.mode === "live");
+  const usesLine = site.installed ?? r.comments.some((c) => c.mode === "live");
   const approved = r.approved && r.approved.round === r.round;
 
   const waMsg = `היי${p.client ? ` ${p.client.split(" ")[0]}` : ""}, האתר מוכן לצפייה 🙂\nבקישור אפשר לראות אותו במחשב ובטלפון, ולסמן כל מה שתרצו לשנות:\n${link}`;
@@ -256,7 +285,34 @@ function ReviewCard({ r, p }: { r: Review; p: Project }) {
         </Btn>
       </div>
 
-      {(showLine || (!usesLine && !r.comments.length)) && (
+      {site.installed !== undefined && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          {site.installed ? (
+            <Badge color={C.ok}>✓ השורה מותקנת באתר, סימון מדויק פעיל</Badge>
+          ) : (
+            <Badge color={C.warn}>השורה עוד לא באתר: הלקוח יסמן במיקום משוער</Badge>
+          )}
+          {site.blocks && (
+            <Badge color={C.bad}>האתר חוסם הצגה בתוך דף אחר: הלקוח יקבל צילום במקום האתר החי</Badge>
+          )}
+          <button
+            className="text-xs font-semibold text-[color:var(--focus-primary)] underline"
+            disabled={site.busy}
+            onClick={() => void check()}
+          >
+            {site.busy ? "בודק…" : "לבדוק שוב"}
+          </button>
+        </div>
+      )}
+      {site.blocks && (
+        <p className="mt-2 text-xs text-[color:var(--focus-muted)]">
+          כדי שהלקוח יראה את האתר החי, צריך לאפשר הצגה בתוך דף של FOCUS ({site.why}). ב-WordPress זה
+          בדרך כלל תוסף אבטחה; אפשר לבקש מ-Claude: &quot;לאפשר הצגת האתר בתוך iframe מהכתובת{" "}
+          {origin()}&quot;.
+        </p>
+      )}
+
+      {(showLine || (site.installed === false && !r.comments.length)) && (
         <div className="mt-4 rounded-xl border border-[color:var(--focus-border)] bg-[var(--focus-bg2)] p-4 text-sm">
           <div className="mb-1 font-semibold">סימון מדויק: שורה אחת באתר</div>
           <p className="mb-2 text-[color:var(--focus-muted)]">

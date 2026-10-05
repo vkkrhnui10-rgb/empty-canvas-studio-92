@@ -188,6 +188,17 @@ const I = {
       />
     </svg>
   ),
+  x: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+    >
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  ),
   stop: (
     <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
       <rect x="6" y="6" width="12" height="12" rx="3" fill="currentColor" />
@@ -337,7 +348,7 @@ export default function ReviewPage({ id }: { id: string }) {
   const [welcome, setWelcome] = React.useState(false);
   const [dialog, setDialog] = React.useState<"" | "send" | "approve">("");
   const [toast, setToast] = React.useState<{ t: string; bad?: boolean } | null>(null);
-  const [zoom, setZoom] = React.useState(false);
+  const [zoom, setZoom] = React.useState(0);
   const [confirmDel, setConfirmDel] = React.useState("");
   const [size, setSize] = React.useState({ w: 1000, h: 700 });
 
@@ -584,7 +595,10 @@ export default function ReviewPage({ id }: { id: string }) {
   let s: number;
   if (view === "desktop") {
     W = Math.max(DESK_W, size.w - 32 > DESK_W ? size.w - 32 : DESK_W);
-    s = zoom ? 1 : Math.min(1, (size.w - (narrow ? 16 : 32)) / W);
+    const fit = Math.min(1, (size.w - (narrow ? 16 : 32)) / W);
+    // zoom steps: fit the window, then bigger so text is readable (scroll sideways to see the rest)
+    const steps = [fit, ...[0.5, 0.75, 1].filter((z) => z > fit + 0.08)];
+    s = steps[Math.min(zoom, steps.length - 1)];
     H = Math.max(300, (size.h - (narrow ? 10 : 32) - 38) / s);
   } else if (narrow) {
     W = PHONE_W;
@@ -595,7 +609,10 @@ export default function ReviewPage({ id }: { id: string }) {
     s = Math.min(1, (size.h - 32 - 24) / PHONE_H);
     H = PHONE_H;
   }
-  const canZoom = view === "desktop" && Math.min(1, (size.w - 32) / W) < 0.8;
+  const fitScale = Math.min(1, (size.w - (narrow ? 16 : 32)) / DESK_W);
+  const zoomSteps =
+    view === "desktop" ? 1 + [0.5, 0.75, 1].filter((z) => z > fitScale + 0.08).length : 1;
+  const canZoom = zoomSteps > 1;
 
   /* ---------- picking without feedback.js ---------- */
   const pickOverlay = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -679,6 +696,7 @@ export default function ReviewPage({ id }: { id: string }) {
         ns.some((n) => n.id === nid) ? ns.map((n) => (n.id === nid ? saved : n)) : [...ns, saved],
       );
       setDraft(null);
+      setCommenting(false); // back to browsing; the big button adds the next note
       flash(draft.editId ? "ההערה עודכנה" : "ההערה נשמרה ✓");
     } catch (e) {
       setErr((e as Error).message);
@@ -1033,7 +1051,7 @@ export default function ReviewPage({ id }: { id: string }) {
                 if (v === view) return;
                 setDraft(null);
                 setView(v);
-                setZoom(false);
+                setZoom(0);
               }}
             >
               {v === "desktop" ? I.desk : I.phone}
@@ -1047,13 +1065,13 @@ export default function ReviewPage({ id }: { id: string }) {
       </header>
 
       <div className="rv-body">
-        <div ref={stageRef} className={`rv-stage ${zoom ? "zoom" : ""}`}>
+        <div ref={stageRef} className={`rv-stage ${zoom && view === "desktop" ? "zoom" : ""}`}>
           {stageInner}
 
           {commenting && !draft && !toast && (
             <div className="rv-hint">
               {mode === "live"
-                ? "לחצו על המקום שתרצו לשנות"
+                ? "לחצו על המקום באתר שתרצו לשנות"
                 : mode === "shot"
                   ? "לחצו על המקום בצילום"
                   : "לחצו על המקום במסך"}
@@ -1092,8 +1110,16 @@ export default function ReviewPage({ id }: { id: string }) {
           )}
 
           {canZoom && !useShot && (
-            <button className="rv-zoom" onClick={() => setZoom((z) => !z)}>
-              {zoom ? "התאמה למסך" : "גודל אמיתי"}
+            <button
+              className="rv-zoom"
+              onClick={() => {
+                const next = (zoom + 1) % zoomSteps;
+                setZoom(next);
+                if (next === 1 && narrow) flash("גוללים הצידה כדי לראות את כל הרוחב");
+              }}
+              aria-label="הגדלה"
+            >
+              {zoom === zoomSteps - 1 ? "↙ התאמה למסך" : "🔍 הגדלה"}
             </button>
           )}
 
@@ -1106,8 +1132,8 @@ export default function ReviewPage({ id }: { id: string }) {
               }}
               aria-pressed={commenting}
             >
-              {commenting ? I.check : I.pin}
-              {commenting ? "סיום הוספת הערות" : "הוספת הערה"}
+              {commenting ? I.x : I.pin}
+              {commenting ? "ביטול, חזרה לגלישה" : "הוספת הערה"}
             </button>
           ) : null}
         </div>

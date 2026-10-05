@@ -234,6 +234,41 @@ export const Route = createFileRoute("/api/review")({
         const sb = await admin();
 
         /* ---------- owner-only ---------- */
+        if (op === "check") {
+          // is the line on the site, and does the site let itself be shown inside the review page?
+          const uid = await authUser(sb, request);
+          if (!uid) return json({ error: "unauthorized" }, 401);
+          const b = await body(request);
+          const target = publicHttpUrl(String(b?.url ?? ""));
+          if (!target) return json({ error: "כתובת לא תקינה" }, 400);
+          const me = new URL(request.url).origin;
+          try {
+            const r = await fetch(target, {
+              headers: {
+                "user-agent":
+                  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+              },
+              redirect: "follow",
+              signal: AbortSignal.timeout(15000),
+            });
+            const html = (await r.text()).slice(0, 2_000_000);
+            const xfo = (r.headers.get("x-frame-options") || "").toLowerCase();
+            const csp = r.headers.get("content-security-policy") || "";
+            const fa = /frame-ancestors([^;]*)/i.exec(csp)?.[1]?.trim() || "";
+            const blocks =
+              /deny|sameorigin/.test(xfo) ||
+              (!!fa && !/(^|\s)\*(\s|$)/.test(fa) && !fa.includes(new URL(me).host));
+            return json({
+              status: r.status,
+              installed: /\/feedback\.js/.test(html),
+              blocks,
+              why: blocks ? (xfo ? `X-Frame-Options: ${xfo}` : `frame-ancestors ${fa}`) : "",
+            });
+          } catch {
+            return json({ error: "האתר לא ענה" }, 502);
+          }
+        }
+
         if (op === "state" || op === "mark" || op === "round" || op === "purge") {
           const uid = await authUser(sb, request);
           if (!uid) return json({ error: "unauthorized" }, 401);

@@ -10,6 +10,8 @@ import type {
   Brief,
   Review,
   ReviewComment,
+  Inspo,
+  MyFont,
   Cpanel,
   DB,
   GrowEntry,
@@ -93,6 +95,9 @@ const emptyDB = (): DB => ({
   leads: [],
   briefs: [],
   reviews: [],
+  inspo: [],
+  fonts: [],
+  fontFavs: [],
   growLog: [],
   soContacts: [],
   plan: { date: todayStr(), ids: [], closed: false },
@@ -247,6 +252,9 @@ function migrate(raw: any): DB {
     activity: raw.activity || [],
     briefs: Array.isArray(raw.briefs) ? raw.briefs : [],
     reviews: Array.isArray(raw.reviews) ? raw.reviews : [],
+    inspo: Array.isArray(raw.inspo) ? raw.inspo : [],
+    fonts: Array.isArray(raw.fonts) ? raw.fonts : [],
+    fontFavs: Array.isArray(raw.fontFavs) ? raw.fontFavs : [],
     briefForm: raw.briefForm && typeof raw.briefForm === "object" ? raw.briefForm : undefined,
     growLog: raw.growLog || [],
     soContacts: Array.isArray(raw.soContacts) ? raw.soContacts : [],
@@ -1499,6 +1507,65 @@ export const actions = {
         d.briefs = d.briefs.filter((b) => b.id !== id);
       }),
     );
+  },
+  /* ---------------- inspiration library ---------------- */
+  addInspo(p: Partial<Inspo> & { kind: Inspo["kind"] }): Inspo {
+    const it: Inspo = {
+      id: uid(),
+      url: "",
+      title: "",
+      category: "",
+      parts: [],
+      note: "",
+      fav: false,
+      created: Date.now(),
+      ...p,
+    };
+    update((d) => {
+      d.inspo.unshift(it);
+    });
+    return it;
+  },
+  patchInspo(id: string, patch: Partial<Inspo>) {
+    update((d) => {
+      const it = d.inspo.find((x) => x.id === id);
+      if (it) Object.assign(it, patch);
+    });
+  },
+  deleteInspo(id: string) {
+    undoable("נמחק מההשראה", () =>
+      update((d) => {
+        d.inspo = d.inspo.filter((x) => x.id !== id && x.siteId !== id);
+      }),
+    );
+  },
+  setInspoCats(cats: string[]) {
+    update((d) => {
+      d.inspoCats = cats;
+    });
+  },
+  addFont(f: MyFont) {
+    update((d) => {
+      d.fonts.unshift(f);
+    });
+  },
+  patchFont(id: string, patch: Partial<MyFont>) {
+    update((d) => {
+      const f = d.fonts.find((x) => x.id === id);
+      if (f) Object.assign(f, patch);
+    });
+  },
+  deleteFont(id: string) {
+    update((d) => {
+      d.fonts = d.fonts.filter((x) => x.id !== id);
+    });
+  },
+  toggleFontFav(id: string) {
+    update((d) => {
+      d.fontFavs = d.fontFavs.includes(id)
+        ? d.fontFavs.filter((x) => x !== id)
+        : [...d.fontFavs, id];
+    });
   },
   /* ---------------- design reviews ---------------- */
   createReview(projectId: string, url: string): Review {

@@ -421,6 +421,49 @@ export interface Review {
   seenAt?: number;
 }
 
+/** a site or a single section I liked — the inspiration library */
+export interface Inspo {
+  id: string;
+  kind: "site" | "section";
+  url: string;
+  title: string;
+  /** business type: restaurants, lawyers, shops… */
+  category: string;
+  /** what I liked: hero, menu, animations… (for a section: what kind of section it is) */
+  parts: string[];
+  note: string;
+  fav: boolean;
+  created: number;
+  /** desktop homepage picture */
+  shot?: { url: string; at: number };
+  /** phone picture */
+  mshot?: { url: string; at: number };
+  /** the whole page, top to bottom (to cut sections out of) */
+  full?: { url: string; at: number };
+  /** a section: the picture of just that part */
+  img?: { url: string; at: number };
+  /** a section cut from a saved site */
+  siteId?: string;
+  /** projects this is a reference for */
+  projectIds?: string[];
+}
+
+/** a font file I uploaded (kept privately) */
+export interface MyFont {
+  id: string;
+  /** original file name */
+  name: string;
+  ext: "ttf" | "otf" | "woff" | "woff2";
+  size: number;
+  /** storage path (private) */
+  path: string;
+  /** what was read from the file (see fontparse.ts) */
+  info: import("./fontparse").FontInfo;
+  note: string;
+  fav: boolean;
+  created: number;
+}
+
 export interface DB {
   version: number;
   tasks: Task[];
@@ -429,6 +472,13 @@ export interface DB {
   leads: Lead[];
   briefs: Brief[];
   reviews: Review[];
+  inspo: Inspo[];
+  /** my own category list for the inspiration library (empty = the default list) */
+  inspoCats?: string[];
+  /** fonts I uploaded */
+  fonts: MyFont[];
+  /** starred fonts from the free catalogue (ids) */
+  fontFavs: string[];
   /** my edits to the questionnaire (hidden questions, wording, added questions) */
   briefForm?: BriefForm;
   growLog: GrowEntry[];
@@ -455,6 +505,7 @@ export type View =
   | "cpanels"
   | "leads"
   | "briefs"
+  | "inspo"
   | "finances"
   | "alerts"
   | "settings";

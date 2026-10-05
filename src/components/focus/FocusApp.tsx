@@ -8,6 +8,7 @@ import {
   FolderKanban,
   Inbox,
   Keyboard,
+  Lightbulb,
   LayoutDashboard,
   ListTodo,
   Menu,
@@ -67,6 +68,7 @@ const CpanelsView = React.lazy(() => import("./money").then((m) => ({ default: m
 const FinancesView = React.lazy(() => import("./money").then((m) => ({ default: m.FinancesView })));
 const LeadsView = React.lazy(() => import("./leads").then((m) => ({ default: m.LeadsView })));
 const BriefsView = React.lazy(() => import("./briefs").then((m) => ({ default: m.BriefsView })));
+const InspoView = React.lazy(() => import("./inspo").then((m) => ({ default: m.InspoView })));
 import { CommandPalette, SettingsView, ShortcutsDialog } from "./settings";
 import { QuickAddDialog, TaskDrawer } from "./tasks";
 import { InlineFloating, useFloating } from "./floating";
@@ -85,6 +87,7 @@ const NAV: { v: View; l: string; i: typeof LayoutDashboard; group?: string }[] =
   { v: "stats", l: "נתונים", i: PieChart },
   { v: "leads", l: "לידים", i: UserPlus, group: "העסק שלך" },
   { v: "briefs", l: "אפיונים", i: ClipboardList },
+  { v: "inspo", l: "השראה", i: Lightbulb },
   { v: "cpanels", l: "פאנלי cPanel", i: Server },
   { v: "finances", l: "כספים", i: Wallet },
   { v: "alerts", l: "התראות", i: Bell },
@@ -109,6 +112,7 @@ function parseHash(): { view: View; projectId: string | null } {
     "cpanels",
     "leads",
     "briefs",
+    "inspo",
     "finances",
     "alerts",
     "settings",
@@ -116,7 +120,10 @@ function parseHash(): { view: View; projectId: string | null } {
   const view = (views.includes(v as View) ? v : "dashboard") as View;
   return {
     view,
-    projectId: view === "project" || view === "leads" || view === "briefs" ? (id ?? null) : null,
+    projectId:
+      view === "project" || view === "leads" || view === "briefs" || view === "inspo"
+        ? (id ?? null)
+        : null,
   };
 }
 
@@ -195,7 +202,7 @@ function Shell() {
   }, []);
 
   const go = React.useCallback((v: View, pid?: string | null) => {
-    const withId = (v === "project" || v === "leads" || v === "briefs") && pid;
+    const withId = (v === "project" || v === "leads" || v === "briefs" || v === "inspo") && pid;
     const hash = withId ? `#/${v}/${pid}` : `#/${v}`;
     if (window.location.hash !== hash) window.location.hash = hash;
     setRoute({ view: v, projectId: withId ? pid : null });
@@ -322,6 +329,9 @@ function Shell() {
       break;
     case "briefs":
       page = <BriefsView openId={projectId} />;
+      break;
+    case "inspo":
+      page = <InspoView openId={projectId} />;
       break;
     case "cpanels":
       page = <CpanelsView />;

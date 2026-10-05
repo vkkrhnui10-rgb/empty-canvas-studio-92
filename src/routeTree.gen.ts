@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiBriefRouteImport } from './routes/api/brief'
+import { Route as ApiFilesRouteImport } from './routes/api/files'
 import { Route as ApiReviewRouteImport } from './routes/api/review'
 import { Route as ApiSiteCheckRouteImport } from './routes/api/site-check'
 import { Route as ApiSiteMonitorRouteImport } from './routes/api/site-monitor'
@@ -27,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
 const ApiBriefRoute = ApiBriefRouteImport.update({
   id: '/api/brief',
   path: '/api/brief',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFilesRoute = ApiFilesRouteImport.update({
+  id: '/api/files',
+  path: '/api/files',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReviewRoute = ApiReviewRouteImport.update({
@@ -68,6 +74,7 @@ const ApiGrowWebhookRoute = ApiGrowWebhookRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/brief': typeof ApiBriefRoute
+  '/api/files': typeof ApiFilesRoute
   '/api/review': typeof ApiReviewRoute
   '/api/site-check': typeof ApiSiteCheckRoute
   '/api/site-monitor': typeof ApiSiteMonitorRoute
@@ -79,6 +86,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/brief': typeof ApiBriefRoute
+  '/api/files': typeof ApiFilesRoute
   '/api/review': typeof ApiReviewRoute
   '/api/site-check': typeof ApiSiteCheckRoute
   '/api/site-monitor': typeof ApiSiteMonitorRoute
@@ -91,6 +99,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/brief': typeof ApiBriefRoute
+  '/api/files': typeof ApiFilesRoute
   '/api/review': typeof ApiReviewRoute
   '/api/site-check': typeof ApiSiteCheckRoute
   '/api/site-monitor': typeof ApiSiteMonitorRoute
@@ -104,6 +113,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/brief'
+    | '/api/files'
     | '/api/review'
     | '/api/site-check'
     | '/api/site-monitor'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/api/brief'
+    | '/api/files'
     | '/api/review'
     | '/api/site-check'
     | '/api/site-monitor'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/api/brief'
+    | '/api/files'
     | '/api/review'
     | '/api/site-check'
     | '/api/site-monitor'
@@ -138,6 +150,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiBriefRoute: typeof ApiBriefRoute
+  ApiFilesRoute: typeof ApiFilesRoute
   ApiReviewRoute: typeof ApiReviewRoute
   ApiSiteCheckRoute: typeof ApiSiteCheckRoute
   ApiSiteMonitorRoute: typeof ApiSiteMonitorRoute
@@ -161,6 +174,13 @@ declare module '@tanstack/react-router' {
       path: '/api/brief'
       fullPath: '/api/brief'
       preLoaderRoute: typeof ApiBriefRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/files': {
+      id: '/api/files'
+      path: '/api/files'
+      fullPath: '/api/files'
+      preLoaderRoute: typeof ApiFilesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/review': {
@@ -218,6 +238,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiBriefRoute: ApiBriefRoute,
+  ApiFilesRoute: ApiFilesRoute,
   ApiReviewRoute: ApiReviewRoute,
   ApiSiteCheckRoute: ApiSiteCheckRoute,
   ApiSiteMonitorRoute: ApiSiteMonitorRoute,

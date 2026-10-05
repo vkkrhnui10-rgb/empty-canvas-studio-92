@@ -90,6 +90,9 @@ const siteColor = (s: string) =>
 const soColor = (s: SOState) =>
   s === "ok" ? C.ok : s === "failed" ? C.bad : s === "cancelled" ? C.sub : C.warn;
 
+const InspoForProject = React.lazy(() =>
+  import("./inspo").then((m) => ({ default: m.InspoForProject })),
+);
 const ReviewTab = React.lazy(() => import("./reviewpanel").then((m) => ({ default: m.ReviewTab })));
 
 /** "active" in the projects list = everything except frozen — launched and maintenance sites are live clients */
@@ -829,6 +832,9 @@ export function ProjectPage({ id }: { id: string }) {
 
         <TabsContent value="overview">
           {p.url && <SiteCard p={p} />}
+          <React.Suspense fallback={null}>
+            <InspoForProject p={p} />
+          </React.Suspense>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             <MiniCard icon={Wallet} title="תשלום" onClick={() => setTab("money")}>
               <div
